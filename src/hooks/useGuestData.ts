@@ -120,6 +120,7 @@ export const useGuestData = () => {
     todos,
     addHabit,
     deleteHabit,
+    updateHabitGoal,
     toggleCompletion,
     addTodo,
     toggleTodo,
