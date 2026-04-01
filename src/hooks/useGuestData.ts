@@ -6,6 +6,7 @@ interface GuestHabit {
   description: string | null;
   color: string;
   is_active: boolean;
+  weekly_goal: number;
   created_at: string;
 }
 
@@ -44,19 +45,26 @@ export const useGuestData = () => {
   const [completions, setCompletions] = useState<GuestCompletion[]>(() => getStored(COMPLETIONS_KEY));
   const [todos, setTodos] = useState<GuestTodo[]>(() => getStored(TODOS_KEY));
 
-  const addHabit = useCallback((name: string, description?: string, color?: string) => {
+  const addHabit = useCallback((name: string, description?: string, color?: string, weeklyGoal?: number) => {
     const habit: GuestHabit = {
       id: crypto.randomUUID(),
       name,
       description: description || null,
       color: color || '#6B9080',
       is_active: true,
+      weekly_goal: weeklyGoal ?? 7,
       created_at: new Date().toISOString(),
     };
     const updated = [...habits, habit];
     setHabits(updated);
     setStored(HABITS_KEY, updated);
     return habit;
+  }, [habits]);
+
+  const updateHabitGoal = useCallback((id: string, goal: number) => {
+    const updated = habits.map(h => h.id === id ? { ...h, weekly_goal: goal } : h);
+    setHabits(updated);
+    setStored(HABITS_KEY, updated);
   }, [habits]);
 
   const deleteHabit = useCallback((id: string) => {
@@ -112,6 +120,7 @@ export const useGuestData = () => {
     todos,
     addHabit,
     deleteHabit,
+    updateHabitGoal,
     toggleCompletion,
     addTodo,
     toggleTodo,

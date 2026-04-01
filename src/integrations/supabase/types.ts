@@ -53,6 +53,7 @@ export type Database = {
           name: string
           updated_at: string
           user_id: string
+          weekly_goal: number
         }
         Insert: {
           color?: string | null
@@ -63,6 +64,7 @@ export type Database = {
           name: string
           updated_at?: string
           user_id: string
+          weekly_goal?: number
         }
         Update: {
           color?: string | null
@@ -73,6 +75,7 @@ export type Database = {
           name?: string
           updated_at?: string
           user_id?: string
+          weekly_goal?: number
         }
         Relationships: []
       }

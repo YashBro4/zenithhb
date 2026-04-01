@@ -1,18 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Leaf, BarChart3, ListTodo, Grid3X3, LogOut, User } from 'lucide-react';
+import { Leaf, BarChart3, ListTodo, Grid3X3, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useHabits, useHabitCompletions, useAllCompletions, useAddHabit, useDeleteHabit, useToggleCompletion, useTodos, useAddTodo, useToggleTodo, useDeleteTodo } from '@/hooks/useSupabaseData';
+import { useHabits, useHabitCompletions, useAllCompletions, useAddHabit, useDeleteHabit, useToggleCompletion, useTodos, useAddTodo, useToggleTodo, useDeleteTodo, useUpdateHabitGoal } from '@/hooks/useSupabaseData';
 import { useGuestData } from '@/hooks/useGuestData';
 import HabitTracker from '@/components/HabitTracker';
 import TodoList from '@/components/TodoList';
 import StatsView from '@/components/StatsView';
+import ProfileSettings from '@/components/ProfileSettings';
+import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getRandomQuote } from '@/lib/quotes';
 
-type View = 'habits' | 'todos' | 'combined' | 'stats';
+type View = 'habits' | 'todos' | 'combined' | 'stats' | 'profile';
 
 const Dashboard = () => {
   const { user, isGuest, signOut, exitGuestMode } = useAuth();
@@ -32,6 +34,7 @@ const Dashboard = () => {
   const addTodoMut = useAddTodo();
   const toggleTodoMut = useToggleTodo();
   const deleteTodoMut = useDeleteTodo();
+  const updateGoalMut = useUpdateHabitGoal();
 
   // Guest hooks
   const guest = useGuestData();
@@ -41,11 +44,11 @@ const Dashboard = () => {
   const allComps = isGuest ? guest.completions : allCompletions;
   const todos = isGuest ? guest.todos.filter(t => t.due_date === today) : sbTodos;
 
-  const handleAddHabit = (name: string, color?: string) => {
+  const handleAddHabit = (name: string, color?: string, weeklyGoal?: number) => {
     if (isGuest) {
-      guest.addHabit(name, undefined, color);
+      guest.addHabit(name, undefined, color, weeklyGoal);
     } else {
-      addHabitMut.mutate({ name, color });
+      addHabitMut.mutate({ name, color, weeklyGoal });
     }
   };
 
@@ -57,6 +60,11 @@ const Dashboard = () => {
   const handleToggleCompletion = (habitId: string, date: string) => {
     if (isGuest) guest.toggleCompletion(habitId, date);
     else toggleCompMut.mutate({ habitId, date });
+  };
+
+  const handleUpdateGoal = (id: string, goal: number) => {
+    if (isGuest) guest.updateHabitGoal(id, goal);
+    else updateGoalMut.mutate({ id, weeklyGoal: goal });
   };
 
   const handleAddTodo = (task: string) => {
@@ -94,7 +102,7 @@ const Dashboard = () => {
     else await signOut();
   };
 
-  const views: { id: View; icon: React.ReactNode; label: string }[] = [
+  const mainViews: { id: View; icon: React.ReactNode; label: string }[] = [
     { id: 'combined', icon: <Grid3X3 className="w-4 h-4" />, label: 'All' },
     { id: 'habits', icon: <BarChart3 className="w-4 h-4" />, label: 'Habits' },
     { id: 'todos', icon: <ListTodo className="w-4 h-4" />, label: 'To-Dos' },
@@ -110,11 +118,17 @@ const Dashboard = () => {
             <Leaf className="w-5 h-5 text-primary" />
             <span className="font-serif font-semibold text-foreground">Zenith</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:inline">
-              {isGuest ? 'Guest' : user?.email}
-            </span>
-            <Button variant="ghost" size="sm" onClick={handleSignOut} className="rounded-lg text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setView('profile')}
+              className="h-8 w-8 rounded-lg text-muted-foreground"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleSignOut} className="h-8 w-8 rounded-lg text-muted-foreground">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -122,28 +136,34 @@ const Dashboard = () => {
       </header>
 
       {/* View Selector */}
-      <div className="max-w-4xl mx-auto px-4 pt-4">
-        <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
-          {views.map(v => (
-            <button
-              key={v.id}
-              onClick={() => setView(v.id)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                view === v.id
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {v.icon}
-              {v.label}
-            </button>
-          ))}
+      {view !== 'profile' && (
+        <div className="max-w-4xl mx-auto px-4 pt-4">
+          <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
+            {mainViews.map(v => (
+              <button
+                key={v.id}
+                onClick={() => setView(v.id)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  view === v.id
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {v.icon}
+                {v.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {view === 'profile' && (
+          <ProfileSettings onBack={() => setView('combined')} />
+        )}
+
         {(view === 'habits' || view === 'combined') && (
           <HabitTracker
             habits={habits}
@@ -151,6 +171,7 @@ const Dashboard = () => {
             onAddHabit={handleAddHabit}
             onDeleteHabit={handleDeleteHabit}
             onToggleCompletion={handleToggleCompletion}
+            onUpdateGoal={handleUpdateGoal}
             currentMonth={currentMonth}
             onMonthChange={setCurrentMonth}
           />

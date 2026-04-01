@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, startOfWeek, endOfWeek } from 'date-fns';
+import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, subDays, isSameDay, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { Flame, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Habit {
   id: string;
   name: string;
   color: string | null;
+  weekly_goal?: number;
 }
 
 interface Completion {
@@ -20,6 +22,35 @@ interface StatsViewProps {
   currentMonth: Date;
 }
 
+const calculateStreak = (habitId: string, completions: Completion[]): number => {
+  const habitCompletions = completions
+    .filter(c => c.habit_id === habitId)
+    .map(c => c.completion_date)
+    .sort()
+    .reverse();
+
+  if (habitCompletions.length === 0) return 0;
+
+  let streak = 0;
+  let checkDate = new Date();
+  // If today isn't completed, start from yesterday
+  const todayStr = format(checkDate, 'yyyy-MM-dd');
+  if (!habitCompletions.includes(todayStr)) {
+    checkDate = subDays(checkDate, 1);
+  }
+
+  for (let i = 0; i < 365; i++) {
+    const dateStr = format(checkDate, 'yyyy-MM-dd');
+    if (habitCompletions.includes(dateStr)) {
+      streak++;
+      checkDate = subDays(checkDate, 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+};
+
 const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
   const monthlyData = useMemo(() => {
     if (habits.length === 0) return [];
@@ -30,6 +61,35 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
       return { name: habit.name, percentage, color: habit.color || '#6B9080', count: habitCompletions.length, total: daysInMonth };
     });
   }, [habits, completions, currentMonth]);
+
+  const streaks = useMemo(() => {
+    return habits.map(h => ({
+      ...h,
+      streak: calculateStreak(h.id, completions),
+      weeklyGoal: (h as any).weekly_goal ?? 7,
+    }));
+  }, [habits, completions]);
+
+  // Weekly goal progress (current week)
+  const weeklyProgress = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun
+    const weekStart = subDays(today, dayOfWeek);
+    const weekDates: string[] = [];
+    for (let i = 0; i <= dayOfWeek; i++) {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      weekDates.push(format(d, 'yyyy-MM-dd'));
+    }
+
+    return habits.map(habit => {
+      const completed = completions.filter(
+        c => c.habit_id === habit.id && weekDates.includes(c.completion_date)
+      ).length;
+      const goal = (habit as any).weekly_goal ?? 7;
+      return { name: habit.name, completed, goal, color: habit.color || '#6B9080', percentage: Math.min(100, Math.round((completed / goal) * 100)) };
+    });
+  }, [habits, completions]);
 
   const heatmapData = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -52,11 +112,9 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
     return 'bg-primary/90';
   };
 
-  // Group heatmap by weeks
   const weeks = useMemo(() => {
     const result: typeof heatmapData[] = [];
     let currentWeek: typeof heatmapData = [];
-    // Pad start
     const firstDay = heatmapData[0]?.date;
     if (firstDay) {
       const dayOfWeek = getDay(firstDay);
@@ -80,11 +138,62 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
     return total > 0 ? Math.round((completed / total) * 100) : 0;
   }, [monthlyData, habits]);
 
+  const longestStreak = useMemo(() => Math.max(0, ...streaks.map(s => s.streak)), [streaks]);
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-serif font-semibold text-foreground">Statistics</h2>
 
-      {/* Overall Progress */}
+      {/* Streak & Progress Cards */}
+      {habits.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="glass rounded-2xl p-4 text-center">
+            <Flame className="w-6 h-6 text-warm mx-auto mb-1" />
+            <p className="text-2xl font-bold text-foreground">{longestStreak}</p>
+            <p className="text-[10px] text-muted-foreground">Best Streak</p>
+          </div>
+          <div className="glass rounded-2xl p-4 text-center">
+            <Target className="w-6 h-6 text-primary mx-auto mb-1" />
+            <p className="text-2xl font-bold text-foreground">{overallPercentage}%</p>
+            <p className="text-[10px] text-muted-foreground">Monthly Progress</p>
+          </div>
+        </div>
+      )}
+
+      {/* Per-habit streaks & weekly goals */}
+      {streaks.length > 0 && (
+        <div className="glass rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-medium text-foreground">Streaks & Weekly Goals</h3>
+          {streaks.map((habit, i) => {
+            const wp = weeklyProgress[i];
+            return (
+              <div key={habit.id} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: habit.color || '#6B9080' }} />
+                    <span className="text-xs font-medium text-foreground">{habit.name}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Flame className="w-3 h-3 text-warm" />
+                      {habit.streak}d
+                    </span>
+                    <span>{wp?.completed}/{wp?.goal} this week</span>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${wp?.percentage || 0}%`, backgroundColor: habit.color || '#6B9080' }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Overall Progress Ring */}
       <div className="glass rounded-2xl p-6 text-center">
         <div className="relative w-28 h-28 mx-auto mb-4">
           <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
