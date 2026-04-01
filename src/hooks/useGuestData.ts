@@ -6,6 +6,7 @@ interface GuestHabit {
   description: string | null;
   color: string;
   is_active: boolean;
+  weekly_goal: number;
   created_at: string;
 }
 

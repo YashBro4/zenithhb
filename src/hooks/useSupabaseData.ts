@@ -61,14 +61,25 @@ export const useAddHabit = () => {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ name, description, color }: { name: string; description?: string; color?: string }) => {
+    mutationFn: async ({ name, description, color, weeklyGoal }: { name: string; description?: string; color?: string; weeklyGoal?: number }) => {
       const { data, error } = await supabase
         .from('habits')
-        .insert({ name, description, color, user_id: user!.id })
+        .insert({ name, description, color, user_id: user!.id, weekly_goal: weeklyGoal ?? 7 })
         .select()
         .single();
       if (error) throw error;
       return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['habits'] }),
+  });
+};
+
+export const useUpdateHabitGoal = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, weeklyGoal }: { id: string; weeklyGoal: number }) => {
+      const { error } = await supabase.from('habits').update({ weekly_goal: weeklyGoal }).eq('id', id);
+      if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['habits'] }),
   });
