@@ -1,14 +1,16 @@
-import { useState, useRef } from 'react';
-import { format, getDaysInMonth, startOfMonth, getDay } from 'date-fns';
-import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { format, getDaysInMonth } from 'date-fns';
+import { Plus, Trash2, ChevronLeft, ChevronRight, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 interface Habit {
   id: string;
   name: string;
   color: string | null;
+  weekly_goal?: number;
 }
 
 interface Completion {
@@ -19,9 +21,10 @@ interface Completion {
 interface HabitTrackerProps {
   habits: Habit[];
   completions: Completion[];
-  onAddHabit: (name: string, color?: string) => void;
+  onAddHabit: (name: string, color?: string, weeklyGoal?: number) => void;
   onDeleteHabit: (id: string) => void;
   onToggleCompletion: (habitId: string, date: string) => void;
+  onUpdateGoal: (id: string, goal: number) => void;
   currentMonth: Date;
   onMonthChange: (date: Date) => void;
 }
@@ -34,22 +37,26 @@ const HabitTracker = ({
   onAddHabit,
   onDeleteHabit,
   onToggleCompletion,
+  onUpdateGoal,
   currentMonth,
   onMonthChange,
 }: HabitTrackerProps) => {
   const [newHabit, setNewHabit] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+  const [weeklyGoal, setWeeklyGoal] = useState(7);
   const [showAdd, setShowAdd] = useState(false);
   const [animatingCell, setAnimatingCell] = useState<string | null>(null);
+  const [editingGoal, setEditingGoal] = useState<string | null>(null);
 
   const daysInMonth = getDaysInMonth(currentMonth);
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const handleAdd = () => {
     if (newHabit.trim()) {
-      onAddHabit(newHabit.trim(), selectedColor);
+      onAddHabit(newHabit.trim(), selectedColor, weeklyGoal);
       setNewHabit('');
       setShowAdd(false);
+      setWeeklyGoal(7);
     }
   };
 
@@ -105,7 +112,7 @@ const HabitTracker = ({
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
             className="rounded-lg border-border bg-background/50"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {COLORS.map(c => (
               <button
                 key={c}
@@ -117,6 +124,22 @@ const HabitTracker = ({
                 style={{ backgroundColor: c }}
               />
             ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Target className="w-3.5 h-3.5" />
+              <span>Weekly goal:</span>
+            </div>
+            <Select value={String(weeklyGoal)} onValueChange={v => setWeeklyGoal(Number(v))}>
+              <SelectTrigger className="w-20 h-8 rounded-lg text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1,2,3,4,5,6,7].map(n => (
+                  <SelectItem key={n} value={String(n)}>{n} day{n > 1 ? 's' : ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button size="sm" onClick={handleAdd} className="ml-auto rounded-lg">
               Add
             </Button>
@@ -134,7 +157,7 @@ const HabitTracker = ({
             <table className="w-full text-xs">
               <thead>
                 <tr>
-                  <th className="text-left p-3 font-medium text-muted-foreground sticky left-0 bg-card/90 backdrop-blur-sm min-w-[120px]">
+                  <th className="text-left p-3 font-medium text-muted-foreground sticky left-0 bg-card/90 backdrop-blur-sm min-w-[140px]">
                     Habit
                   </th>
                   {Array.from({ length: daysInMonth }, (_, i) => {
@@ -161,14 +184,38 @@ const HabitTracker = ({
                     <td className="p-3 sticky left-0 bg-card/90 backdrop-blur-sm">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: habit.color || '#6B9080' }} />
-                        <span className="text-foreground font-medium truncate max-w-[80px]">{habit.name}</span>
+                        <span className="text-foreground font-medium truncate max-w-[60px]">{habit.name}</span>
+                        <button
+                          onClick={() => setEditingGoal(editingGoal === habit.id ? null : habit.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Edit weekly goal"
+                        >
+                          <Target className="w-3 h-3 text-muted-foreground hover:text-primary" />
+                        </button>
                         <button
                           onClick={() => onDeleteHabit(habit.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
                         </button>
                       </div>
+                      {editingGoal === habit.id && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <Select
+                            value={String((habit as any).weekly_goal ?? 7)}
+                            onValueChange={v => { onUpdateGoal(habit.id, Number(v)); setEditingGoal(null); }}
+                          >
+                            <SelectTrigger className="h-6 w-16 text-[10px] rounded">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[1,2,3,4,5,6,7].map(n => (
+                                <SelectItem key={n} value={String(n)}>{n}d/wk</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </td>
                     {Array.from({ length: daysInMonth }, (_, i) => {
                       const day = i + 1;
