@@ -11,6 +11,7 @@ interface Habit {
   name: string;
   color: string | null;
   weekly_goal?: number;
+  created_at?: string;
 }
 
 interface Completion {
@@ -224,8 +225,10 @@ const HabitTracker = ({
                       const cellKey = `${habit.id}-${dateStr}`;
                       const isToday = dateStr === today;
                       const isPast = dateStr < today;
-                      const isMissed = isPast && !completed;
-                      const isClickable = !isPast || isToday;
+                      const habitCreatedDate = habit.created_at ? format(new Date(habit.created_at), 'yyyy-MM-dd') : null;
+                      const isBeforeCreation = habitCreatedDate ? dateStr < habitCreatedDate : false;
+                      const isMissed = isPast && !completed && !isBeforeCreation;
+                      const isClickable = !isBeforeCreation && (!isPast || isToday);
 
                       return (
                         <td key={day} className="p-1 text-center">
@@ -234,8 +237,9 @@ const HabitTracker = ({
                             disabled={!isClickable}
                             className={cn(
                               'w-6 h-6 rounded-md transition-all duration-200 inline-flex items-center justify-center',
+                              isBeforeCreation ? 'bg-transparent cursor-default' :
                               completed ? 'scale-100' : isMissed ? 'bg-destructive/10' : 'bg-muted/50 hover:bg-muted',
-                              isToday && !completed && 'ring-1 ring-primary/30',
+                              isToday && !completed && !isBeforeCreation && 'ring-1 ring-primary/30',
                               !isClickable && !completed && 'cursor-default',
                               animatingCell === cellKey && 'animate-check-pop'
                             )}
