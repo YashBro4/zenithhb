@@ -223,15 +223,20 @@ const HabitTracker = ({
                       const completed = isCompleted(habit.id, dateStr);
                       const cellKey = `${habit.id}-${dateStr}`;
                       const isToday = dateStr === today;
+                      const isPast = dateStr < today;
+                      const isMissed = isPast && !completed;
+                      const isClickable = !isPast || isToday;
 
                       return (
                         <td key={day} className="p-1 text-center">
                           <button
-                            onClick={() => handleToggle(habit.id, dateStr)}
+                            onClick={() => isClickable && handleToggle(habit.id, dateStr)}
+                            disabled={!isClickable}
                             className={cn(
                               'w-6 h-6 rounded-md transition-all duration-200 inline-flex items-center justify-center',
-                              completed ? 'scale-100' : 'bg-muted/50 hover:bg-muted',
+                              completed ? 'scale-100' : isMissed ? 'bg-destructive/10' : 'bg-muted/50 hover:bg-muted',
                               isToday && !completed && 'ring-1 ring-primary/30',
+                              !isClickable && !completed && 'cursor-default',
                               animatingCell === cellKey && 'animate-check-pop'
                             )}
                             style={completed ? { backgroundColor: habit.color || '#6B9080', opacity: 0.85 } : {}}
@@ -239,6 +244,11 @@ const HabitTracker = ({
                             {completed && (
                               <svg className="w-3 h-3 text-background" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                            {isMissed && (
+                              <svg className="w-3 h-3 text-destructive/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             )}
                           </button>
