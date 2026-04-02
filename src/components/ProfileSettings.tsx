@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -6,6 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Camera, User } from 'lucide-react';
 import { toast } from 'sonner';
+
+const getSignedAvatarUrl = async (storagePath: string): Promise<string | null> => {
+  if (!storagePath) return null;
+  if (storagePath.startsWith('http')) return storagePath;
+  const { data, error } = await supabase.storage
+    .from('avatars')
+    .createSignedUrl(storagePath, 3600);
+  if (error) return null;
+  return data.signedUrl;
+};
 
 interface ProfileSettingsProps {
   onBack: () => void;
@@ -31,16 +41,26 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
   });
 
   const [displayName, setDisplayName] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarPath, setAvatarPath] = useState('');
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Sync state when profile loads
-  useState(() => {
+  // Resolve signed URL whenever avatarPath or profile changes
+  useEffect(() => {
+    const path = avatarPath || profile?.avatar_url || '';
+    if (path) {
+      getSignedAvatarUrl(path).then(setSignedUrl);
+    } else {
+      setSignedUrl(null);
+    }
+  }, [avatarPath, profile?.avatar_url]);
+
+  useEffect(() => {
     if (profile) {
       setDisplayName(profile.display_name || '');
-      setAvatarUrl(profile.avatar_url || '');
+      setAvatarPath(profile.avatar_url || '');
     }
-  });
+  }, [profile]);
 
   const updateProfile = useMutation({
     mutationFn: async ({ display_name, avatar_url }: { display_name: string; avatar_url?: string }) => {
@@ -71,12 +91,8 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
         .upload(path, file, { upsert: true });
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(path);
-
-      setAvatarUrl(publicUrl);
-      await updateProfile.mutateAsync({ display_name: displayName, avatar_url: publicUrl });
+      setAvatarPath(path);
+      await updateProfile.mutateAsync({ display_name: displayName, avatar_url: path });
     } catch (err) {
       toast.error('Failed to upload avatar');
     } finally {
@@ -85,7 +101,7 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
   };
 
   const handleSave = () => {
-    updateProfile.mutate({ display_name: displayName, avatar_url: avatarUrl });
+    updateProfile.mutate({ display_name: displayName, avatar_url: avatarPath });
   };
 
   if (isGuest) {
@@ -113,7 +129,6 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
   }
 
   const currentName = displayName || profile?.display_name || '';
-  const currentAvatar = avatarUrl || profile?.avatar_url || '';
 
   return (
     <div className="space-y-6">
@@ -129,8 +144,8 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
         <div className="flex flex-col items-center gap-3">
           <div className="relative">
             <div className="w-24 h-24 rounded-2xl bg-muted flex items-center justify-center overflow-hidden">
-              {currentAvatar ? (
-                <img src={currentAvatar} alt="Avatar" className="w-full h-full object-cover" />
+              {signedUrl ? (
+                <img src={signedUrl} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
                 <User className="w-10 h-10 text-muted-foreground" />
               )}
