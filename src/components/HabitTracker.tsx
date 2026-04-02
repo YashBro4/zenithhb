@@ -157,7 +157,7 @@ const HabitTracker = ({
             <table className="w-full text-xs">
               <thead>
                 <tr>
-                  <th className="text-left p-3 font-medium text-muted-foreground sticky left-0 bg-card/90 backdrop-blur-sm min-w-[140px]">
+                  <th className="text-left p-3 font-medium text-muted-foreground sticky left-0 z-20 bg-card backdrop-blur-sm min-w-[140px]">
                     Habit
                   </th>
                   {Array.from({ length: daysInMonth }, (_, i) => {
