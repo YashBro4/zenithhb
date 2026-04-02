@@ -225,8 +225,10 @@ const HabitTracker = ({
                       const cellKey = `${habit.id}-${dateStr}`;
                       const isToday = dateStr === today;
                       const isPast = dateStr < today;
-                      const isMissed = isPast && !completed;
-                      const isClickable = !isPast || isToday;
+                      const habitCreatedDate = habit.created_at ? format(new Date(habit.created_at), 'yyyy-MM-dd') : null;
+                      const isBeforeCreation = habitCreatedDate ? dateStr < habitCreatedDate : false;
+                      const isMissed = isPast && !completed && !isBeforeCreation;
+                      const isClickable = !isBeforeCreation && (!isPast || isToday);
 
                       return (
                         <td key={day} className="p-1 text-center">
