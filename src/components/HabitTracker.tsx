@@ -157,7 +157,7 @@ const HabitTracker = ({
             <table className="w-full text-xs">
               <thead>
                 <tr>
-                  <th className="text-left p-3 font-medium text-muted-foreground sticky left-0 bg-card/90 backdrop-blur-sm min-w-[140px]">
+                  <th className="text-left p-3 font-medium text-muted-foreground sticky left-0 z-20 bg-card backdrop-blur-sm min-w-[140px]">
                     Habit
                   </th>
                   {Array.from({ length: daysInMonth }, (_, i) => {
@@ -181,7 +181,7 @@ const HabitTracker = ({
               <tbody>
                 {habits.map(habit => (
                   <tr key={habit.id} className="border-t border-border/30 group">
-                    <td className="p-3 sticky left-0 bg-card/90 backdrop-blur-sm">
+                    <td className="p-3 sticky left-0 z-20 bg-card backdrop-blur-sm">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: habit.color || '#6B9080' }} />
                         <span className="text-foreground font-medium truncate max-w-[60px]">{habit.name}</span>
