@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, subDays, isSameDay, parseISO } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { Flame, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
