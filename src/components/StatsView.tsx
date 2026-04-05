@@ -9,6 +9,7 @@ interface Habit {
   name: string;
   color: string | null;
   weekly_goal?: number;
+  created_at?: string;
 }
 
 interface Completion {
