@@ -141,6 +141,48 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
 
   const longestStreak = useMemo(() => Math.max(0, ...streaks.map(s => s.streak)), [streaks]);
 
+  // Growth data: potential vs current for each day of the month
+  const growthData = useMemo(() => {
+    if (habits.length === 0) return [];
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+    const data = [];
+    let cumulativeCurrent = 0;
+    let cumulativePotential = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = format(new Date(year, month, day), 'yyyy-MM-dd');
+      
+      // Count how many habits existed on this day
+      const activeHabits = habits.filter(h => {
+        if (!h.created_at) return true;
+        const createdDate = format(new Date(h.created_at), 'yyyy-MM-dd');
+        return dateStr >= createdDate;
+      });
+
+      const potentialForDay = activeHabits.length;
+      cumulativePotential += potentialForDay;
+
+      // Only count actual completions up to today
+      if (dateStr <= todayStr) {
+        const completedForDay = completions.filter(
+          c => c.completion_date === dateStr && activeHabits.some(h => h.id === c.habit_id)
+        ).length;
+        cumulativeCurrent += completedForDay;
+      }
+
+      data.push({
+        day,
+        potential: cumulativePotential,
+        current: dateStr <= todayStr ? cumulativeCurrent : null,
+      });
+    }
+    return data;
+  }, [habits, completions, currentMonth]);
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-serif font-semibold text-foreground">Statistics</h2>
