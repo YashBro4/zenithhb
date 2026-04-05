@@ -228,7 +228,8 @@ const HabitTracker = ({
                       const habitCreatedDate = habit.created_at ? format(new Date(habit.created_at), 'yyyy-MM-dd') : null;
                       const isBeforeCreation = habitCreatedDate ? dateStr < habitCreatedDate : false;
                       const isMissed = isPast && !completed && !isBeforeCreation;
-                      const isClickable = !isBeforeCreation && (!isPast || isToday);
+                      const isFuture = dateStr > today;
+                      const isClickable = !isBeforeCreation && !isPast && !isFuture;
 
                       return (
                         <td key={day} className="p-1 text-center">

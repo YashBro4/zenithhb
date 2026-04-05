@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, subDays, isSameDay, parseISO } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { Flame, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -9,6 +9,7 @@ interface Habit {
   name: string;
   color: string | null;
   weekly_goal?: number;
+  created_at?: string;
 }
 
 interface Completion {
@@ -140,6 +141,48 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
 
   const longestStreak = useMemo(() => Math.max(0, ...streaks.map(s => s.streak)), [streaks]);
 
+  // Growth data: potential vs current for each day of the month
+  const growthData = useMemo(() => {
+    if (habits.length === 0) return [];
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+    const data = [];
+    let cumulativeCurrent = 0;
+    let cumulativePotential = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = format(new Date(year, month, day), 'yyyy-MM-dd');
+      
+      // Count how many habits existed on this day
+      const activeHabits = habits.filter(h => {
+        if (!h.created_at) return true;
+        const createdDate = format(new Date(h.created_at), 'yyyy-MM-dd');
+        return dateStr >= createdDate;
+      });
+
+      const potentialForDay = activeHabits.length;
+      cumulativePotential += potentialForDay;
+
+      // Only count actual completions up to today
+      if (dateStr <= todayStr) {
+        const completedForDay = completions.filter(
+          c => c.completion_date === dateStr && activeHabits.some(h => h.id === c.habit_id)
+        ).length;
+        cumulativeCurrent += completedForDay;
+      }
+
+      data.push({
+        day,
+        potential: cumulativePotential,
+        current: dateStr <= todayStr ? cumulativeCurrent : null,
+      });
+    }
+    return data;
+  }, [habits, completions, currentMonth]);
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-serif font-semibold text-foreground">Statistics</h2>
@@ -238,6 +281,65 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
                 ))}
               </Bar>
             </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Growth Line Chart */}
+      {growthData.length > 0 && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-foreground mb-1">Growth Tracking</h3>
+          <p className="text-[10px] text-muted-foreground mb-4">Potential vs Current completions · {format(currentMonth, 'MMMM yyyy')}</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={growthData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+              <XAxis
+                dataKey="day"
+                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                tickLine={false}
+                axisLine={false}
+                width={35}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.75rem',
+                  fontSize: '12px',
+                }}
+                formatter={(value: number | null, name: string) => [
+                  value !== null ? value : '—',
+                  name === 'potential' ? 'Potential' : 'Current'
+                ]}
+                labelFormatter={(day) => `Day ${day}`}
+              />
+              <Legend
+                formatter={(value) => (value === 'potential' ? 'Potential Growth' : 'Current Growth')}
+                wrapperStyle={{ fontSize: '11px' }}
+              />
+              <Line
+                type="monotone"
+                dataKey="potential"
+                stroke="hsl(var(--muted-foreground))"
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={false}
+                connectNulls={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="current"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2.5}
+                dot={false}
+                connectNulls={false}
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       )}
