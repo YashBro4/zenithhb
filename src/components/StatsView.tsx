@@ -1,7 +1,14 @@
 import { useMemo } from 'react';
-import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, subDays, isSameDay, parseISO } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
+import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, subDays, parseISO } from 'date-fns';
+import {
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
+  LineChart, Line, CartesianGrid, Legend,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  PieChart, Pie,
+  AreaChart, Area,
+} from 'recharts';
 import { Flame, Target } from 'lucide-react';
+import { useTimeBlocks, CATEGORY_COLORS } from '@/hooks/useTimeBlocks';
 import { cn } from '@/lib/utils';
 
 interface Habit {
