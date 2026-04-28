@@ -1,7 +1,14 @@
 import { useMemo } from 'react';
-import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, subDays, isSameDay, parseISO } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
+import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, subDays, parseISO } from 'date-fns';
+import {
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
+  LineChart, Line, CartesianGrid, Legend,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  PieChart, Pie,
+  AreaChart, Area,
+} from 'recharts';
 import { Flame, Target } from 'lucide-react';
+import { useTimeBlocks, CATEGORY_COLORS } from '@/hooks/useTimeBlocks';
 import { cn } from '@/lib/utils';
 
 interface Habit {
@@ -53,6 +60,18 @@ const calculateStreak = (habitId: string, completions: Completion[]): number => 
 };
 
 const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
+  const { blocks: timeBlocks } = useTimeBlocks();
+
+  // Map habit name -> life pillar (for radar). Heuristic keyword match.
+  const pillarOf = (name: string): 'Health' | 'Wealth' | 'Logic' | 'Spirit' | 'Craft' => {
+    const n = name.toLowerCase();
+    if (/(gym|run|exercise|walk|yoga|sleep|water|meditat|stretch|workout|cardio|diet|eat)/.test(n)) return 'Health';
+    if (/(invest|save|budget|money|trade|earn|sell|client|business|finance)/.test(n)) return 'Wealth';
+    if (/(read|study|learn|code|practice|review|research|write notes)/.test(n)) return 'Logic';
+    if (/(pray|reflect|journal|gratitude|breathe|meditat|spirit)/.test(n)) return 'Spirit';
+    return 'Craft';
+  };
+
   const monthlyData = useMemo(() => {
     if (habits.length === 0) return [];
     return habits.map(habit => {
@@ -181,6 +200,62 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
       });
     }
     return data;
+  }, [habits, completions, currentMonth]);
+
+  // Radar: balance across life pillars (last 30 days)
+  const radarData = useMemo(() => {
+    const pillars = ['Health', 'Wealth', 'Logic', 'Spirit', 'Craft'] as const;
+    const today = new Date();
+    const since = subDays(today, 30);
+    const sinceStr = format(since, 'yyyy-MM-dd');
+    const result = pillars.map(p => {
+      const habitsInPillar = habits.filter(h => pillarOf(h.name) === p);
+      if (habitsInPillar.length === 0) return { pillar: p, score: 0 };
+      const ids = new Set(habitsInPillar.map(h => h.id));
+      const completedRecent = completions.filter(c => ids.has(c.habit_id) && c.completion_date >= sinceStr).length;
+      const possible = habitsInPillar.length * 30;
+      return { pillar: p, score: Math.round((completedRecent / possible) * 100) };
+    });
+    return result;
+  }, [habits, completions]);
+
+  // Donut: today's time distribution from time blocks
+  const timeDistribution = useMemo(() => {
+    const today = new Date().getDay();
+    const totals: Record<string, number> = {};
+    timeBlocks.filter(b => b.day_of_week === today).forEach(b => {
+      totals[b.category] = (totals[b.category] ?? 0) + (b.end_minute - b.start_minute);
+    });
+    return Object.entries(totals).map(([cat, mins]) => ({
+      name: cat,
+      value: mins,
+      color: CATEGORY_COLORS[cat] ?? '#9CA3AF',
+    }));
+  }, [timeBlocks]);
+
+  // Stacked area: per-habit completions across the month
+  const stackedAreaData = useMemo(() => {
+    if (habits.length === 0) return [];
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const out: Array<Record<string, number | string>> = [];
+    const totals: Record<string, number> = {};
+    habits.forEach(h => { totals[h.id] = 0; });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = format(new Date(year, month, d), 'yyyy-MM-dd');
+      if (dateStr > todayStr) break;
+      habits.forEach(h => {
+        if (completions.some(c => c.habit_id === h.id && c.completion_date === dateStr)) {
+          totals[h.id] += 1;
+        }
+      });
+      const row: Record<string, number | string> = { day: d };
+      habits.forEach(h => { row[h.name] = totals[h.id]; });
+      out.push(row);
+    }
+    return out;
   }, [habits, completions, currentMonth]);
 
   return (
@@ -377,6 +452,106 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
           <span>More</span>
         </div>
       </div>
+
+      {/* Life-pillar Radar */}
+      {habits.length > 0 && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-foreground mb-1">Life Pillars Balance</h3>
+          <p className="text-[10px] text-muted-foreground mb-3">% completion across pillars · last 30 days</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <RadarChart data={radarData} outerRadius="75%">
+              <PolarGrid stroke="hsl(var(--border))" />
+              <PolarAngleAxis dataKey="pillar" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+              <Radar
+                name="Score"
+                dataKey="score"
+                stroke="hsl(var(--primary))"
+                fill="hsl(var(--primary))"
+                fillOpacity={0.35}
+                strokeWidth={2}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.75rem',
+                  fontSize: '12px',
+                }}
+                formatter={(v: number) => [`${v}%`, 'Score']}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Today's time distribution donut */}
+      {timeDistribution.length > 0 && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-foreground mb-1">Today's Time Distribution</h3>
+          <p className="text-[10px] text-muted-foreground mb-3">From your timetable</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={timeDistribution}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={50}
+                outerRadius={85}
+                paddingAngle={2}
+              >
+                {timeDistribution.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.75rem',
+                  fontSize: '12px',
+                }}
+                formatter={(v: number, name: string) => [`${Math.floor(v / 60)}h ${v % 60}m`, name]}
+              />
+              <Legend wrapperStyle={{ fontSize: '11px', textTransform: 'capitalize' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Stacked area: cumulative habit growth */}
+      {stackedAreaData.length > 0 && habits.length > 0 && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-foreground mb-1">Cumulative Habit Growth</h3>
+          <p className="text-[10px] text-muted-foreground mb-3">Per-habit completions stacked · {format(currentMonth, 'MMMM yyyy')}</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={stackedAreaData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={28} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.75rem',
+                  fontSize: '12px',
+                }}
+              />
+              {habits.map((h, i) => (
+                <Area
+                  key={h.id}
+                  type="monotone"
+                  dataKey={h.name}
+                  stackId="1"
+                  stroke={h.color || '#6B9080'}
+                  fill={h.color || '#6B9080'}
+                  fillOpacity={0.55}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 };

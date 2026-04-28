@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Leaf, BarChart3, ListTodo, Grid3X3, LogOut, Settings } from 'lucide-react';
+import { Leaf, BarChart3, ListTodo, Grid3X3, LogOut, Settings, CalendarRange } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHabits, useHabitCompletions, useAllCompletions, useAddHabit, useDeleteHabit, useToggleCompletion, useTodos, useAddTodo, useToggleTodo, useDeleteTodo, useUpdateHabitGoal } from '@/hooks/useSupabaseData';
 import { useGuestData } from '@/hooks/useGuestData';
@@ -9,12 +9,14 @@ import TodoList from '@/components/TodoList';
 import StatsView from '@/components/StatsView';
 import ProfileSettings from '@/components/ProfileSettings';
 import ThemeToggle from '@/components/ThemeToggle';
+import GreatnessHero from '@/components/GreatnessHero';
+import Timetable from '@/components/Timetable';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getRandomQuote } from '@/lib/quotes';
 
-type View = 'habits' | 'todos' | 'combined' | 'stats' | 'profile';
+type View = 'habits' | 'todos' | 'combined' | 'stats' | 'timetable' | 'profile';
 
 const Dashboard = () => {
   const { user, isGuest, signOut, exitGuestMode } = useAuth();
@@ -106,6 +108,7 @@ const Dashboard = () => {
     { id: 'combined', icon: <Grid3X3 className="w-4 h-4" />, label: 'All' },
     { id: 'habits', icon: <BarChart3 className="w-4 h-4" />, label: 'Habits' },
     { id: 'todos', icon: <ListTodo className="w-4 h-4" />, label: 'To-Dos' },
+    { id: 'timetable', icon: <CalendarRange className="w-4 h-4" />, label: 'Timetable' },
     { id: 'stats', icon: <BarChart3 className="w-4 h-4" />, label: 'Stats' },
   ];
 
@@ -159,10 +162,12 @@ const Dashboard = () => {
       )}
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 py-6 space-y-8">
         {view === 'profile' && (
           <ProfileSettings onBack={() => setView('combined')} />
         )}
+
+        {view === 'combined' && <GreatnessHero />}
 
         {(view === 'habits' || view === 'combined') && (
           <HabitTracker
@@ -186,6 +191,8 @@ const Dashboard = () => {
             dateLabel={format(new Date(), 'EEEE, MMMM d')}
           />
         )}
+
+        {view === 'timetable' && <Timetable />}
 
         {view === 'stats' && (
           <StatsView
