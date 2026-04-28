@@ -162,10 +162,12 @@ const Dashboard = () => {
       )}
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 py-6 space-y-8">
         {view === 'profile' && (
           <ProfileSettings onBack={() => setView('combined')} />
         )}
+
+        {view === 'combined' && <GreatnessHero />}
 
         {(view === 'habits' || view === 'combined') && (
           <HabitTracker
@@ -189,6 +191,8 @@ const Dashboard = () => {
             dateLabel={format(new Date(), 'EEEE, MMMM d')}
           />
         )}
+
+        {view === 'timetable' && <Timetable />}
 
         {view === 'stats' && (
           <StatsView
