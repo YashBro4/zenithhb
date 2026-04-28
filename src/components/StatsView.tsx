@@ -60,6 +60,18 @@ const calculateStreak = (habitId: string, completions: Completion[]): number => 
 };
 
 const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
+  const { blocks: timeBlocks } = useTimeBlocks();
+
+  // Map habit name -> life pillar (for radar). Heuristic keyword match.
+  const pillarOf = (name: string): 'Health' | 'Wealth' | 'Logic' | 'Spirit' | 'Craft' => {
+    const n = name.toLowerCase();
+    if (/(gym|run|exercise|walk|yoga|sleep|water|meditat|stretch|workout|cardio|diet|eat)/.test(n)) return 'Health';
+    if (/(invest|save|budget|money|trade|earn|sell|client|business|finance)/.test(n)) return 'Wealth';
+    if (/(read|study|learn|code|practice|review|research|write notes)/.test(n)) return 'Logic';
+    if (/(pray|reflect|journal|gratitude|breathe|meditat|spirit)/.test(n)) return 'Spirit';
+    return 'Craft';
+  };
+
   const monthlyData = useMemo(() => {
     if (habits.length === 0) return [];
     return habits.map(habit => {
