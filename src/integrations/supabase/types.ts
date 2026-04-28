@@ -106,6 +106,48 @@ export type Database = {
         }
         Relationships: []
       }
+      time_blocks: {
+        Row: {
+          category: string
+          color: string | null
+          created_at: string
+          day_of_week: number
+          end_minute: number
+          id: string
+          notes: string | null
+          start_minute: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          color?: string | null
+          created_at?: string
+          day_of_week: number
+          end_minute: number
+          id?: string
+          notes?: string | null
+          start_minute: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          color?: string | null
+          created_at?: string
+          day_of_week?: number
+          end_minute?: number
+          id?: string
+          notes?: string | null
+          start_minute?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       todos: {
         Row: {
           completed: boolean | null
