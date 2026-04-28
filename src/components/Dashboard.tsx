@@ -108,6 +108,7 @@ const Dashboard = () => {
     { id: 'combined', icon: <Grid3X3 className="w-4 h-4" />, label: 'All' },
     { id: 'habits', icon: <BarChart3 className="w-4 h-4" />, label: 'Habits' },
     { id: 'todos', icon: <ListTodo className="w-4 h-4" />, label: 'To-Dos' },
+    { id: 'timetable', icon: <CalendarRange className="w-4 h-4" />, label: 'Timetable' },
     { id: 'stats', icon: <BarChart3 className="w-4 h-4" />, label: 'Stats' },
   ];
 
