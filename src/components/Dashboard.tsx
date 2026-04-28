@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Leaf, BarChart3, ListTodo, Grid3X3, LogOut, Settings } from 'lucide-react';
+import { Leaf, BarChart3, ListTodo, Grid3X3, LogOut, Settings, CalendarRange } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHabits, useHabitCompletions, useAllCompletions, useAddHabit, useDeleteHabit, useToggleCompletion, useTodos, useAddTodo, useToggleTodo, useDeleteTodo, useUpdateHabitGoal } from '@/hooks/useSupabaseData';
 import { useGuestData } from '@/hooks/useGuestData';
@@ -9,12 +9,14 @@ import TodoList from '@/components/TodoList';
 import StatsView from '@/components/StatsView';
 import ProfileSettings from '@/components/ProfileSettings';
 import ThemeToggle from '@/components/ThemeToggle';
+import GreatnessHero from '@/components/GreatnessHero';
+import Timetable from '@/components/Timetable';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getRandomQuote } from '@/lib/quotes';
 
-type View = 'habits' | 'todos' | 'combined' | 'stats' | 'profile';
+type View = 'habits' | 'todos' | 'combined' | 'stats' | 'timetable' | 'profile';
 
 const Dashboard = () => {
   const { user, isGuest, signOut, exitGuestMode } = useAuth();
