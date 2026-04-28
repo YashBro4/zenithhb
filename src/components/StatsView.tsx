@@ -260,7 +260,7 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
 
   return (
     <div className="space-y-6">
-
+      <h2 className="text-lg font-serif font-semibold text-foreground">Statistics</h2>
 
       {/* Streak & Progress Cards */}
       {habits.length > 0 && (
