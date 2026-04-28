@@ -202,7 +202,63 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
     return data;
   }, [habits, completions, currentMonth]);
 
-  return (
+  // Radar: balance across life pillars (last 30 days)
+  const radarData = useMemo(() => {
+    const pillars = ['Health', 'Wealth', 'Logic', 'Spirit', 'Craft'] as const;
+    const today = new Date();
+    const since = subDays(today, 30);
+    const sinceStr = format(since, 'yyyy-MM-dd');
+    const result = pillars.map(p => {
+      const habitsInPillar = habits.filter(h => pillarOf(h.name) === p);
+      if (habitsInPillar.length === 0) return { pillar: p, score: 0 };
+      const ids = new Set(habitsInPillar.map(h => h.id));
+      const completedRecent = completions.filter(c => ids.has(c.habit_id) && c.completion_date >= sinceStr).length;
+      const possible = habitsInPillar.length * 30;
+      return { pillar: p, score: Math.round((completedRecent / possible) * 100) };
+    });
+    return result;
+  }, [habits, completions]);
+
+  // Donut: today's time distribution from time blocks
+  const timeDistribution = useMemo(() => {
+    const today = new Date().getDay();
+    const totals: Record<string, number> = {};
+    timeBlocks.filter(b => b.day_of_week === today).forEach(b => {
+      totals[b.category] = (totals[b.category] ?? 0) + (b.end_minute - b.start_minute);
+    });
+    return Object.entries(totals).map(([cat, mins]) => ({
+      name: cat,
+      value: mins,
+      color: CATEGORY_COLORS[cat] ?? '#9CA3AF',
+    }));
+  }, [timeBlocks]);
+
+  // Stacked area: per-habit completions across the month
+  const stackedAreaData = useMemo(() => {
+    if (habits.length === 0) return [];
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const out: Array<Record<string, number | string>> = [];
+    const totals: Record<string, number> = {};
+    habits.forEach(h => { totals[h.id] = 0; });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = format(new Date(year, month, d), 'yyyy-MM-dd');
+      if (dateStr > todayStr) break;
+      habits.forEach(h => {
+        if (completions.some(c => c.habit_id === h.id && c.completion_date === dateStr)) {
+          totals[h.id] += 1;
+        }
+      });
+      const row: Record<string, number | string> = { day: d };
+      habits.forEach(h => { row[h.name] = totals[h.id]; });
+      out.push(row);
+    }
+    return out;
+  }, [habits, completions, currentMonth]);
+
+
     <div className="space-y-6">
       <h2 className="text-lg font-serif font-semibold text-foreground">Statistics</h2>
 
