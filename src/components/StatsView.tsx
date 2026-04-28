@@ -452,6 +452,106 @@ const StatsView = ({ habits, completions, currentMonth }: StatsViewProps) => {
           <span>More</span>
         </div>
       </div>
+
+      {/* Life-pillar Radar */}
+      {habits.length > 0 && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-foreground mb-1">Life Pillars Balance</h3>
+          <p className="text-[10px] text-muted-foreground mb-3">% completion across pillars · last 30 days</p>
+          <ResponsiveContainer width="100%" height={240}>
+            <RadarChart data={radarData} outerRadius="75%">
+              <PolarGrid stroke="hsl(var(--border))" />
+              <PolarAngleAxis dataKey="pillar" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+              <Radar
+                name="Score"
+                dataKey="score"
+                stroke="hsl(var(--primary))"
+                fill="hsl(var(--primary))"
+                fillOpacity={0.35}
+                strokeWidth={2}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.75rem',
+                  fontSize: '12px',
+                }}
+                formatter={(v: number) => [`${v}%`, 'Score']}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Today's time distribution donut */}
+      {timeDistribution.length > 0 && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-foreground mb-1">Today's Time Distribution</h3>
+          <p className="text-[10px] text-muted-foreground mb-3">From your timetable</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={timeDistribution}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={50}
+                outerRadius={85}
+                paddingAngle={2}
+              >
+                {timeDistribution.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.75rem',
+                  fontSize: '12px',
+                }}
+                formatter={(v: number, name: string) => [`${Math.floor(v / 60)}h ${v % 60}m`, name]}
+              />
+              <Legend wrapperStyle={{ fontSize: '11px', textTransform: 'capitalize' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Stacked area: cumulative habit growth */}
+      {stackedAreaData.length > 0 && habits.length > 0 && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-foreground mb-1">Cumulative Habit Growth</h3>
+          <p className="text-[10px] text-muted-foreground mb-3">Per-habit completions stacked · {format(currentMonth, 'MMMM yyyy')}</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={stackedAreaData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={28} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '0.75rem',
+                  fontSize: '12px',
+                }}
+              />
+              {habits.map((h, i) => (
+                <Area
+                  key={h.id}
+                  type="monotone"
+                  dataKey={h.name}
+                  stackId="1"
+                  stroke={h.color || '#6B9080'}
+                  fill={h.color || '#6B9080'}
+                  fillOpacity={0.55}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 };
