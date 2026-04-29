@@ -278,17 +278,29 @@ const Timetable = () => {
         {/* Header row */}
         <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-border/30 bg-card/60">
           <div />
-          {DAYS.map((d, i) => (
-            <div
-              key={d}
-              className={cn(
-                'p-2 text-center text-[11px] font-medium border-l border-border/30',
-                i === today ? 'text-primary' : 'text-muted-foreground'
-              )}
-            >
-              {d}
-            </div>
-          ))}
+          {DAYS.map((d, i) => {
+            const dayCount = blocks.filter(b => b.day_of_week === i).length;
+            return (
+              <div
+                key={d}
+                className={cn(
+                  'p-2 text-center text-[11px] font-medium border-l border-border/30 flex items-center justify-center gap-1',
+                  i === today ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                <span>{d}</span>
+                {dayCount > 0 && (
+                  <button
+                    onClick={() => openClone(i)}
+                    title={`Copy ${d}'s schedule to other days`}
+                    className="opacity-40 hover:opacity-100 hover:text-primary transition-opacity"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Body */}
