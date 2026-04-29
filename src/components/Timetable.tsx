@@ -484,6 +484,99 @@ const Timetable = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Clone day → multi-day picker */}
+      <Dialog open={cloneSourceDay !== null} onOpenChange={(o) => !o && setCloneSourceDay(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">
+              Copy {cloneSourceDay !== null ? DAYS[cloneSourceDay] : ''} to…
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Choose target days, then pick whether to merge with or replace their existing blocks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-4 gap-2">
+              {DAYS.map((d, i) => {
+                const disabled = i === cloneSourceDay;
+                const checked = cloneTargets.includes(i);
+                return (
+                  <label
+                    key={d}
+                    className={cn(
+                      'flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs transition-colors',
+                      disabled
+                        ? 'opacity-40 cursor-not-allowed border-border/30'
+                        : checked
+                          ? 'border-primary bg-primary/10 cursor-pointer'
+                          : 'border-border/40 hover:bg-muted/50 cursor-pointer'
+                    )}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      disabled={disabled}
+                      onCheckedChange={() => !disabled && toggleCloneTarget(i)}
+                    />
+                    {d}
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Mode:</span>
+              <button
+                onClick={() => setCloneMode('merge')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md border transition-colors',
+                  cloneMode === 'merge' ? 'border-primary bg-primary/10 text-foreground' : 'border-border/40 text-muted-foreground hover:bg-muted/50'
+                )}
+              >
+                Merge (skip conflicts)
+              </button>
+              <button
+                onClick={() => setCloneMode('replace')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md border transition-colors',
+                  cloneMode === 'replace' ? 'border-destructive bg-destructive/10 text-foreground' : 'border-border/40 text-muted-foreground hover:bg-muted/50'
+                )}
+              >
+                Replace
+              </button>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setCloneSourceDay(null)}>Cancel</Button>
+            <Button
+              size="sm"
+              disabled={cloneTargets.length === 0}
+              onClick={() => {
+                if (cloneMode === 'replace') setConfirmClone(true);
+                else runClone();
+              }}
+            >
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Replace-mode confirmation */}
+      <Dialog open={confirmClone} onOpenChange={setConfirmClone}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Replace existing blocks?</DialogTitle>
+            <DialogDescription className="text-xs">
+              This will delete every block on {cloneTargets.map(d => DAYS[d]).join(', ')} and replace them with {cloneSourceDay !== null ? DAYS[cloneSourceDay] : ''}'s schedule. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setConfirmClone(false)}>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={runClone}>Replace</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
