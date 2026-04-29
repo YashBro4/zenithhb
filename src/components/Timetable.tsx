@@ -55,12 +55,73 @@ const Timetable = () => {
     scrollRef.current.scrollTop = Math.max(0, offset);
   }, []);
 
+  // Layout blocks per day with collision detection: assigns each block a column index and the
+  // total number of overlapping columns so we can auto-stack them side-by-side.
+  type LaidOut = TimeBlock & { _col: number; _cols: number };
   const blocksByDay = useMemo(() => {
-    const map: Record<number, TimeBlock[]> = {};
+    const map: Record<number, LaidOut[]> = {};
     for (let i = 0; i < 7; i++) map[i] = [];
-    blocks.forEach(b => map[b.day_of_week]?.push(b));
+    for (let day = 0; day < 7; day++) {
+      const dayBlocks = blocks
+        .filter(b => b.day_of_week === day)
+        .sort((a, b) => a.start_minute - b.start_minute || a.end_minute - b.end_minute);
+
+      // Group into clusters of mutually-overlapping blocks.
+      let cluster: TimeBlock[] = [];
+      let clusterEnd = -1;
+      const flush = () => {
+        if (!cluster.length) return;
+        // Greedy column assignment within the cluster.
+        const cols: TimeBlock[][] = [];
+        const colOf = new Map<string, number>();
+        cluster.forEach(b => {
+          let placed = false;
+          for (let i = 0; i < cols.length; i++) {
+            const last = cols[i][cols[i].length - 1];
+            if (last.end_minute <= b.start_minute) {
+              cols[i].push(b);
+              colOf.set(b.id, i);
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) {
+            cols.push([b]);
+            colOf.set(b.id, cols.length - 1);
+          }
+        });
+        const total = cols.length;
+        cluster.forEach(b => {
+          map[day].push({ ...b, _col: colOf.get(b.id) ?? 0, _cols: total });
+        });
+        cluster = [];
+        clusterEnd = -1;
+      };
+
+      dayBlocks.forEach(b => {
+        if (cluster.length === 0 || b.start_minute < clusterEnd) {
+          cluster.push(b);
+          clusterEnd = Math.max(clusterEnd, b.end_minute);
+        } else {
+          flush();
+          cluster.push(b);
+          clusterEnd = b.end_minute;
+        }
+      });
+      flush();
+    }
     return map;
   }, [blocks]);
+
+  // True if a candidate block overlaps any existing block on its day (excluding itself when editing).
+  const hasConflict = (candidate: { day_of_week: number; start_minute: number; end_minute: number; id?: string }) => {
+    return blocks.some(b =>
+      b.day_of_week === candidate.day_of_week &&
+      b.id !== candidate.id &&
+      candidate.start_minute < b.end_minute &&
+      b.start_minute < candidate.end_minute
+    );
+  };
 
   const openNew = (day: number, startMinute = 9 * 60) => {
     setEditing({
@@ -93,6 +154,15 @@ const Timetable = () => {
     }
     if (editing.end_minute <= editing.start_minute) {
       toast.error('End must be after start');
+      return;
+    }
+    if (hasConflict({
+      day_of_week: editing.day_of_week,
+      start_minute: editing.start_minute,
+      end_minute: editing.end_minute,
+      id: editing.id,
+    })) {
+      toast.error('Time conflict — this block overlaps an existing one');
       return;
     }
     const payload: NewTimeBlock = {
@@ -216,6 +286,9 @@ const Timetable = () => {
                   const top = ((b.start_minute - HOUR_START * 60) / 60) * HOUR_HEIGHT;
                   const height = ((b.end_minute - b.start_minute) / 60) * HOUR_HEIGHT;
                   const color = b.color || CATEGORY_COLORS[b.category] || '#6B9080';
+                  // Side-by-side stacking for overlapping blocks.
+                  const widthPct = 100 / b._cols;
+                  const leftPct = b._col * widthPct;
                   return (
                     <motion.button
                       key={b.id}
@@ -224,10 +297,12 @@ const Timetable = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.96 }}
                       onClick={(e) => { e.stopPropagation(); openEdit(b); }}
-                      className="absolute left-0.5 right-0.5 rounded-md p-1.5 text-left overflow-hidden border z-20 group hover:shadow-md transition-shadow"
+                      className="absolute rounded-md p-1.5 text-left overflow-hidden border z-20 group hover:shadow-md transition-shadow"
                       style={{
                         top: Math.max(0, top),
                         height: Math.max(20, height - 2),
+                        left: `calc(${leftPct}% + 2px)`,
+                        width: `calc(${widthPct}% - 4px)`,
                         backgroundColor: `${color}25`,
                         borderColor: `${color}66`,
                       }}
