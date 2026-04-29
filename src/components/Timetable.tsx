@@ -286,6 +286,9 @@ const Timetable = () => {
                   const top = ((b.start_minute - HOUR_START * 60) / 60) * HOUR_HEIGHT;
                   const height = ((b.end_minute - b.start_minute) / 60) * HOUR_HEIGHT;
                   const color = b.color || CATEGORY_COLORS[b.category] || '#6B9080';
+                  // Side-by-side stacking for overlapping blocks.
+                  const widthPct = 100 / b._cols;
+                  const leftPct = b._col * widthPct;
                   return (
                     <motion.button
                       key={b.id}
@@ -294,10 +297,12 @@ const Timetable = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.96 }}
                       onClick={(e) => { e.stopPropagation(); openEdit(b); }}
-                      className="absolute left-0.5 right-0.5 rounded-md p-1.5 text-left overflow-hidden border z-20 group hover:shadow-md transition-shadow"
+                      className="absolute rounded-md p-1.5 text-left overflow-hidden border z-20 group hover:shadow-md transition-shadow"
                       style={{
                         top: Math.max(0, top),
                         height: Math.max(20, height - 2),
+                        left: `calc(${leftPct}% + 2px)`,
+                        width: `calc(${widthPct}% - 4px)`,
                         backgroundColor: `${color}25`,
                         borderColor: `${color}66`,
                       }}
