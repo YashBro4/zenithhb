@@ -151,7 +151,7 @@ const HabitTracker = ({
         </div>
       )}
 
-      {/* Habit cards */}
+      {/* Habit cards — single shared horizontal scroll */}
       {habits.length === 0 ? (
         <div className="glass rounded-2xl p-10 text-center">
           <p className="text-muted-foreground text-sm">
@@ -159,100 +159,109 @@ const HabitTracker = ({
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {habits.map(habit => {
-            const goal = (habit as any).weekly_goal ?? 7;
-            const streak = calcStreak(habit.id, completions);
-            const weekDone = completions.filter(c => c.habit_id === habit.id && weekDates.includes(c.completion_date)).length;
-            const color = habit.color || '#6B9080';
-            const habitCreated = habit.created_at ? format(new Date(habit.created_at), 'yyyy-MM-dd') : null;
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <div className="min-w-max">
+              {habits.map((habit, idx) => {
+                const goal = (habit as any).weekly_goal ?? 7;
+                const streak = calcStreak(habit.id, completions);
+                const weekDone = completions.filter(c => c.habit_id === habit.id && weekDates.includes(c.completion_date)).length;
+                const color = habit.color || '#6B9080';
+                const habitCreated = habit.created_at ? format(new Date(habit.created_at), 'yyyy-MM-dd') : null;
 
-            return (
-              <div key={habit.id} className="glass rounded-2xl p-4 group hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <h3 className="font-medium text-foreground truncate">{habit.name}</h3>
-                    {streak > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Flame className="w-3 h-3 text-warm" />
-                        {streak}d
-                      </span>
+                return (
+                  <div
+                    key={habit.id}
+                    className={cn(
+                      'group flex items-center gap-3 px-3 py-3 hover:bg-muted/30 transition-colors',
+                      idx > 0 && 'border-t border-border/40'
                     )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-muted-foreground tabular-nums">{weekDone}/{goal} wk</span>
-                    <Select
-                      value={String(goal)}
-                      onValueChange={v => onUpdateGoal(habit.id, Number(v))}
-                    >
-                      <SelectTrigger className="h-7 w-[72px] text-[11px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1,2,3,4,5,6,7].map(n => <SelectItem key={n} value={String(n)}>{n}/wk</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDeleteHabit(habit.id)}
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Day circles */}
-                <div className="overflow-x-auto -mx-1 px-1">
-                  <div className="flex items-center gap-1.5 min-w-max pb-1">
-                    {Array.from({ length: daysInMonth }, (_, i) => {
-                      const day = i + 1;
-                      const dateStr = format(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day), 'yyyy-MM-dd');
-                      const completed = isCompleted(habit.id, dateStr);
-                      const isToday = dateStr === today;
-                      const isPast = dateStr < today;
-                      const isFuture = dateStr > today;
-                      const isBeforeCreation = habitCreated ? dateStr < habitCreated : false;
-                      const isMissed = isPast && !completed && !isBeforeCreation;
-                      const isClickable = !isBeforeCreation && !isFuture;
-
-                      return (
-                        <button
-                          key={day}
-                          onClick={() => isClickable && onToggleCompletion(habit.id, dateStr)}
-                          disabled={!isClickable}
-                          title={dateStr}
-                          className={cn(
-                            'relative w-7 h-7 rounded-full transition-all duration-200 inline-flex items-center justify-center text-[10px] font-medium shrink-0',
-                            isBeforeCreation && 'opacity-0 pointer-events-none',
-                            !isBeforeCreation && !completed && !isMissed && 'bg-muted/50 hover:bg-muted text-muted-foreground',
-                            !isBeforeCreation && !completed && isMissed && 'bg-destructive/10 text-destructive/70',
-                            isToday && !completed && !isBeforeCreation && 'ring-2 ring-primary/40',
-                            !isClickable && !completed && !isBeforeCreation && 'cursor-default',
+                  >
+                    {/* Sticky-left habit info column */}
+                    <div className="sticky left-0 z-10 bg-card/95 backdrop-blur-sm pr-3 py-1 flex items-center gap-2.5 min-w-[200px] max-w-[240px] border-r border-border/40">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-medium text-sm text-foreground truncate">{habit.name}</h3>
+                          {streak > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
+                              <Flame className="w-3 h-3 text-warm" />
+                              {streak}
+                            </span>
                           )}
-                          style={completed ? { backgroundColor: color, color: 'white' } : {}}
-                        >
-                          {completed ? (
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : isMissed ? (
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          ) : (
-                            day
-                          )}
-                        </button>
-                      );
-                    })}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground tabular-nums">{weekDone}/{goal} this week</p>
+                      </div>
+                      <Select
+                        value={String(goal)}
+                        onValueChange={v => onUpdateGoal(habit.id, Number(v))}
+                      >
+                        <SelectTrigger className="h-7 w-[58px] text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1,2,3,4,5,6,7].map(n => <SelectItem key={n} value={String(n)}>{n}/wk</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDeleteHabit(habit.id)}
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Day circles */}
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: daysInMonth }, (_, i) => {
+                        const day = i + 1;
+                        const dateStr = format(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day), 'yyyy-MM-dd');
+                        const completed = isCompleted(habit.id, dateStr);
+                        const isToday = dateStr === today;
+                        const isPast = dateStr < today;
+                        const isFuture = dateStr > today;
+                        const isBeforeCreation = habitCreated ? dateStr < habitCreated : false;
+                        const isMissed = isPast && !completed && !isBeforeCreation;
+                        const isClickable = !isBeforeCreation && !isFuture;
+
+                        return (
+                          <button
+                            key={day}
+                            onClick={() => isClickable && onToggleCompletion(habit.id, dateStr)}
+                            disabled={!isClickable}
+                            title={dateStr}
+                            className={cn(
+                              'relative w-7 h-7 rounded-full transition-all duration-200 inline-flex items-center justify-center text-[10px] font-medium shrink-0',
+                              isBeforeCreation && 'opacity-0 pointer-events-none',
+                              !isBeforeCreation && !completed && !isMissed && 'bg-muted/50 hover:bg-muted text-muted-foreground',
+                              !isBeforeCreation && !completed && isMissed && 'bg-destructive/10 text-destructive/70',
+                              isToday && !completed && !isBeforeCreation && 'ring-2 ring-primary/40',
+                              !isClickable && !completed && !isBeforeCreation && 'cursor-default',
+                            )}
+                            style={completed ? { backgroundColor: color, color: 'white' } : {}}
+                          >
+                            {completed ? (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : isMissed ? (
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            ) : (
+                              day
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>

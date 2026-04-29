@@ -44,7 +44,7 @@ interface EditState {
 }
 
 const Timetable = () => {
-  const { blocks, add, update, remove } = useTimeBlocks();
+  const { blocks, add, update, remove, cloneDays } = useTimeBlocks();
   const [editing, setEditing] = useState<EditState | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -188,9 +188,14 @@ const Timetable = () => {
 
   const removeBlock = async () => {
     if (!editing?.id) return;
-    await remove(editing.id);
-    setEditing(null);
-    toast.success('Block removed');
+    const id = editing.id;
+    setEditing(null); // close immediately; remove() is optimistic
+    try {
+      await remove(id);
+      toast.success('Block removed');
+    } catch (e: any) {
+      toast.error(e.message ?? 'Failed to delete');
+    }
   };
 
   // ---------- Apply-to-Days (Clone) ----------
@@ -211,40 +216,20 @@ const Timetable = () => {
 
   const runClone = async () => {
     if (cloneSourceDay === null || cloneTargets.length === 0) return;
-    const source = blocks.filter(b => b.day_of_week === cloneSourceDay);
-    if (source.length === 0) {
-      toast.error('Source day has no blocks to copy');
-      return;
-    }
     try {
-      for (const target of cloneTargets) {
-        // Replace mode: delete existing target-day blocks first.
-        if (cloneMode === 'replace') {
-          const existing = blocks.filter(b => b.day_of_week === target);
-          for (const e of existing) await remove(e.id);
-        }
-        // Compute the resulting target blocks (post-delete in replace mode) for collision checks.
-        const remaining = cloneMode === 'replace'
-          ? []
-          : [...blocks.filter(b => b.day_of_week === target)];
-        for (const b of source) {
-          const conflict = remaining.some(r =>
-            b.start_minute < r.end_minute && r.start_minute < b.end_minute
-          );
-          if (conflict) continue; // merge mode: skip conflicting items
-          await add({
-            title: b.title,
-            category: b.category,
-            color: b.color,
-            day_of_week: target,
-            start_minute: b.start_minute,
-            end_minute: b.end_minute,
-            notes: b.notes,
-          });
-          remaining.push({ ...b, day_of_week: target });
-        }
+      const { added, skipped } = await cloneDays({
+        sourceDay: cloneSourceDay,
+        targetDays: cloneTargets,
+        mode: cloneMode,
+      });
+      if (added === 0 && skipped === 0) {
+        toast.error('Source day has no blocks to copy');
+      } else {
+        toast.success(
+          `Copied ${added} block${added === 1 ? '' : 's'} to ${cloneTargets.length} day${cloneTargets.length === 1 ? '' : 's'}` +
+          (skipped ? ` (${skipped} skipped due to conflicts)` : '')
+        );
       }
-      toast.success(`Copied ${source.length} block${source.length > 1 ? 's' : ''} to ${cloneTargets.length} day${cloneTargets.length > 1 ? 's' : ''}`);
       setConfirmClone(false);
       setCloneSourceDay(null);
       setCloneTargets([]);
