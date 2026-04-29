@@ -44,7 +44,7 @@ interface EditState {
 }
 
 const Timetable = () => {
-  const { blocks, add, update, remove } = useTimeBlocks();
+  const { blocks, add, update, remove, cloneDays } = useTimeBlocks();
   const [editing, setEditing] = useState<EditState | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
