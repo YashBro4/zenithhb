@@ -188,9 +188,14 @@ const Timetable = () => {
 
   const removeBlock = async () => {
     if (!editing?.id) return;
-    await remove(editing.id);
-    setEditing(null);
-    toast.success('Block removed');
+    const id = editing.id;
+    setEditing(null); // close immediately; remove() is optimistic
+    try {
+      await remove(id);
+      toast.success('Block removed');
+    } catch (e: any) {
+      toast.error(e.message ?? 'Failed to delete');
+    }
   };
 
   // ---------- Apply-to-Days (Clone) ----------
