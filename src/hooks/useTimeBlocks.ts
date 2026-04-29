@@ -24,6 +24,12 @@ export interface NewTimeBlock {
   notes?: string | null;
 }
 
+export interface BulkCloneArgs {
+  sourceDay: number;
+  targetDays: number[];
+  mode: 'merge' | 'replace';
+}
+
 export const CATEGORY_COLORS: Record<string, string> = {
   work: '#6B9080',
   gym: '#E8A87C',
