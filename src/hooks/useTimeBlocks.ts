@@ -199,12 +199,12 @@ export const useTimeBlocks = () => {
     if (!user) return { added: 0, skipped };
 
     // Run delete + insert in parallel; one round-trip each.
-    const ops: Promise<any>[] = [];
+    const ops: Promise<{ error: any }>[] = [];
     if (idsToDelete.length) {
-      ops.push(supabase.from('time_blocks').delete().in('id', idsToDelete));
+      ops.push(Promise.resolve(supabase.from('time_blocks').delete().in('id', idsToDelete)));
     }
     if (inserts.length) {
-      ops.push(supabase.from('time_blocks').insert(inserts.map(i => ({ ...i, user_id: user.id }))));
+      ops.push(Promise.resolve(supabase.from('time_blocks').insert(inserts.map(i => ({ ...i, user_id: user.id })))));
     }
     const results = await Promise.all(ops);
     for (const r of results) {
