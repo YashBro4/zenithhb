@@ -130,10 +130,89 @@ export const useTimeBlocks = () => {
       setGuestBlocks(next);
       return;
     }
+    // Optimistic update so UI feels instant.
+    qc.setQueryData<TimeBlock[]>(['time_blocks', user?.id], (prev) =>
+      (prev ?? []).filter(b => b.id !== id)
+    );
     const { error } = await supabase.from('time_blocks').delete().eq('id', id);
-    if (error) throw error;
-    qc.invalidateQueries({ queryKey: ['time_blocks'] });
-  }, [isGuest, qc]);
+    if (error) {
+      qc.invalidateQueries({ queryKey: ['time_blocks'] });
+      throw error;
+    }
+  }, [isGuest, qc, user?.id]);
 
-  return { blocks, add, update, remove, isLoading: !isGuest && cloudQuery.isLoading };
+  // Bulk clone: copies all source-day blocks to multiple target days in a single round-trip.
+  // Avoids the per-row await storm that made cloning feel glitchy and slow.
+  const cloneDays = useCallback(async ({ sourceDay, targetDays, mode }: BulkCloneArgs) => {
+    const current = isGuest ? readGuest() : (qc.getQueryData<TimeBlock[]>(['time_blocks', user?.id]) ?? []);
+    const source = current.filter(b => b.day_of_week === sourceDay);
+    if (source.length === 0 || targetDays.length === 0) return { added: 0, skipped: 0 };
+
+    const overlaps = (a: { start_minute: number; end_minute: number }, b: { start_minute: number; end_minute: number }) =>
+      a.start_minute < b.end_minute && b.start_minute < a.end_minute;
+
+    // Determine which IDs to delete (replace mode) and which inserts to make.
+    const idsToDelete: string[] = [];
+    const inserts: Array<NewTimeBlock & { user_id?: string }> = [];
+    let skipped = 0;
+
+    for (const target of targetDays) {
+      const existing = current.filter(b => b.day_of_week === target);
+      if (mode === 'replace') {
+        idsToDelete.push(...existing.map(e => e.id));
+      }
+      const remaining = mode === 'replace' ? [] : [...existing];
+      for (const s of source) {
+        const candidate = { ...s, day_of_week: target };
+        const conflict = remaining.some(r => overlaps(candidate, r));
+        if (conflict) { skipped++; continue; }
+        inserts.push({
+          title: s.title,
+          category: s.category,
+          color: s.color ?? CATEGORY_COLORS[s.category] ?? null,
+          day_of_week: target,
+          start_minute: s.start_minute,
+          end_minute: s.end_minute,
+          notes: s.notes,
+        });
+        remaining.push(candidate);
+      }
+    }
+
+    if (isGuest) {
+      const newItems: TimeBlock[] = inserts.map(i => ({
+        id: crypto.randomUUID(),
+        title: i.title,
+        category: i.category,
+        color: i.color ?? null,
+        day_of_week: i.day_of_week,
+        start_minute: i.start_minute,
+        end_minute: i.end_minute,
+        notes: i.notes ?? null,
+      }));
+      const next = current.filter(b => !idsToDelete.includes(b.id)).concat(newItems);
+      writeGuest(next);
+      setGuestBlocks(next);
+      return { added: newItems.length, skipped };
+    }
+
+    if (!user) return { added: 0, skipped };
+
+    // Run delete + insert in parallel; one round-trip each.
+    const ops: Promise<any>[] = [];
+    if (idsToDelete.length) {
+      ops.push(supabase.from('time_blocks').delete().in('id', idsToDelete));
+    }
+    if (inserts.length) {
+      ops.push(supabase.from('time_blocks').insert(inserts.map(i => ({ ...i, user_id: user.id }))));
+    }
+    const results = await Promise.all(ops);
+    for (const r of results) {
+      if (r.error) throw r.error;
+    }
+    qc.invalidateQueries({ queryKey: ['time_blocks'] });
+    return { added: inserts.length, skipped };
+  }, [isGuest, user, qc]);
+
+  return { blocks, add, update, remove, cloneDays, isLoading: !isGuest && cloudQuery.isLoading };
 };
