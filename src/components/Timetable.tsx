@@ -1,10 +1,12 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, X, Clock } from 'lucide-react';
+import { Plus, Trash2, X, Clock, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useTimeBlocks, CATEGORIES, CATEGORY_COLORS, type TimeBlock, type NewTimeBlock } from '@/hooks/useTimeBlocks';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -191,6 +193,66 @@ const Timetable = () => {
     toast.success('Block removed');
   };
 
+  // ---------- Apply-to-Days (Clone) ----------
+  const [cloneSourceDay, setCloneSourceDay] = useState<number | null>(null);
+  const [cloneTargets, setCloneTargets] = useState<number[]>([]);
+  const [cloneMode, setCloneMode] = useState<'merge' | 'replace'>('merge');
+  const [confirmClone, setConfirmClone] = useState(false);
+
+  const openClone = (day: number) => {
+    setCloneSourceDay(day);
+    setCloneTargets([]);
+    setCloneMode('merge');
+  };
+
+  const toggleCloneTarget = (day: number) => {
+    setCloneTargets(t => t.includes(day) ? t.filter(d => d !== day) : [...t, day]);
+  };
+
+  const runClone = async () => {
+    if (cloneSourceDay === null || cloneTargets.length === 0) return;
+    const source = blocks.filter(b => b.day_of_week === cloneSourceDay);
+    if (source.length === 0) {
+      toast.error('Source day has no blocks to copy');
+      return;
+    }
+    try {
+      for (const target of cloneTargets) {
+        // Replace mode: delete existing target-day blocks first.
+        if (cloneMode === 'replace') {
+          const existing = blocks.filter(b => b.day_of_week === target);
+          for (const e of existing) await remove(e.id);
+        }
+        // Compute the resulting target blocks (post-delete in replace mode) for collision checks.
+        const remaining = cloneMode === 'replace'
+          ? []
+          : [...blocks.filter(b => b.day_of_week === target)];
+        for (const b of source) {
+          const conflict = remaining.some(r =>
+            b.start_minute < r.end_minute && r.start_minute < b.end_minute
+          );
+          if (conflict) continue; // merge mode: skip conflicting items
+          await add({
+            title: b.title,
+            category: b.category,
+            color: b.color,
+            day_of_week: target,
+            start_minute: b.start_minute,
+            end_minute: b.end_minute,
+            notes: b.notes,
+          });
+          remaining.push({ ...b, day_of_week: target });
+        }
+      }
+      toast.success(`Copied ${source.length} block${source.length > 1 ? 's' : ''} to ${cloneTargets.length} day${cloneTargets.length > 1 ? 's' : ''}`);
+      setConfirmClone(false);
+      setCloneSourceDay(null);
+      setCloneTargets([]);
+    } catch (e: any) {
+      toast.error(e.message ?? 'Failed to clone');
+    }
+  };
+
   const today = new Date().getDay();
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
   const nowOffset = ((nowMinutes - HOUR_START * 60) / 60) * HOUR_HEIGHT;
@@ -216,17 +278,29 @@ const Timetable = () => {
         {/* Header row */}
         <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-border/30 bg-card/60">
           <div />
-          {DAYS.map((d, i) => (
-            <div
-              key={d}
-              className={cn(
-                'p-2 text-center text-[11px] font-medium border-l border-border/30',
-                i === today ? 'text-primary' : 'text-muted-foreground'
-              )}
-            >
-              {d}
-            </div>
-          ))}
+          {DAYS.map((d, i) => {
+            const dayCount = blocks.filter(b => b.day_of_week === i).length;
+            return (
+              <div
+                key={d}
+                className={cn(
+                  'p-2 text-center text-[11px] font-medium border-l border-border/30 flex items-center justify-center gap-1',
+                  i === today ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                <span>{d}</span>
+                {dayCount > 0 && (
+                  <button
+                    onClick={() => openClone(i)}
+                    title={`Copy ${d}'s schedule to other days`}
+                    className="opacity-40 hover:opacity-100 hover:text-primary transition-opacity"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Body */}
@@ -408,6 +482,99 @@ const Timetable = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Clone day → multi-day picker */}
+      <Dialog open={cloneSourceDay !== null} onOpenChange={(o) => !o && setCloneSourceDay(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">
+              Copy {cloneSourceDay !== null ? DAYS[cloneSourceDay] : ''} to…
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Choose target days, then pick whether to merge with or replace their existing blocks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-4 gap-2">
+              {DAYS.map((d, i) => {
+                const disabled = i === cloneSourceDay;
+                const checked = cloneTargets.includes(i);
+                return (
+                  <label
+                    key={d}
+                    className={cn(
+                      'flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs transition-colors',
+                      disabled
+                        ? 'opacity-40 cursor-not-allowed border-border/30'
+                        : checked
+                          ? 'border-primary bg-primary/10 cursor-pointer'
+                          : 'border-border/40 hover:bg-muted/50 cursor-pointer'
+                    )}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      disabled={disabled}
+                      onCheckedChange={() => !disabled && toggleCloneTarget(i)}
+                    />
+                    {d}
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Mode:</span>
+              <button
+                onClick={() => setCloneMode('merge')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md border transition-colors',
+                  cloneMode === 'merge' ? 'border-primary bg-primary/10 text-foreground' : 'border-border/40 text-muted-foreground hover:bg-muted/50'
+                )}
+              >
+                Merge (skip conflicts)
+              </button>
+              <button
+                onClick={() => setCloneMode('replace')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md border transition-colors',
+                  cloneMode === 'replace' ? 'border-destructive bg-destructive/10 text-foreground' : 'border-border/40 text-muted-foreground hover:bg-muted/50'
+                )}
+              >
+                Replace
+              </button>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setCloneSourceDay(null)}>Cancel</Button>
+            <Button
+              size="sm"
+              disabled={cloneTargets.length === 0}
+              onClick={() => {
+                if (cloneMode === 'replace') setConfirmClone(true);
+                else runClone();
+              }}
+            >
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Replace-mode confirmation */}
+      <Dialog open={confirmClone} onOpenChange={setConfirmClone}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Replace existing blocks?</DialogTitle>
+            <DialogDescription className="text-xs">
+              This will delete every block on {cloneTargets.map(d => DAYS[d]).join(', ')} and replace them with {cloneSourceDay !== null ? DAYS[cloneSourceDay] : ''}'s schedule. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setConfirmClone(false)}>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={runClone}>Replace</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
