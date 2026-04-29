@@ -156,6 +156,15 @@ const Timetable = () => {
       toast.error('End must be after start');
       return;
     }
+    if (hasConflict({
+      day_of_week: editing.day_of_week,
+      start_minute: editing.start_minute,
+      end_minute: editing.end_minute,
+      id: editing.id,
+    })) {
+      toast.error('Time conflict — this block overlaps an existing one');
+      return;
+    }
     const payload: NewTimeBlock = {
       title: editing.title.trim(),
       category: editing.category,
