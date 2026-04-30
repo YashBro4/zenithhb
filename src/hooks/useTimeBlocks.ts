@@ -214,5 +214,37 @@ export const useTimeBlocks = () => {
     return { added: inserts.length, skipped };
   }, [isGuest, user, qc]);
 
-  return { blocks, add, update, remove, cloneDays, isLoading: !isGuest && cloudQuery.isLoading };
+  // Wipe every block on a single day.
+  const clearDay = useCallback(async (day: number) => {
+    if (isGuest) {
+      const next = readGuest().filter(b => b.day_of_week !== day);
+      writeGuest(next);
+      setGuestBlocks(next);
+      return;
+    }
+    if (!user) return;
+    const prev = qc.getQueryData<TimeBlock[]>(['time_blocks', user.id]) ?? [];
+    qc.setQueryData<TimeBlock[]>(['time_blocks', user.id], prev.filter(b => b.day_of_week !== day));
+    const { error } = await supabase
+      .from('time_blocks')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('day_of_week', day);
+    if (error) {
+      qc.setQueryData(['time_blocks', user.id], prev);
+      throw error;
+    }
+  }, [isGuest, user, qc]);
+
+  return {
+    blocks,
+    add,
+    update,
+    remove,
+    cloneDays,
+    clearDay,
+    isLoading: !isGuest && cloudQuery.isLoading,
+    isError: !isGuest && cloudQuery.isError,
+    refetch: cloudQuery.refetch,
+  };
 };
