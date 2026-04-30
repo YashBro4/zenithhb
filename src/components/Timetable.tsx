@@ -158,12 +158,30 @@ const Timetable = () => {
 
   const save = async () => {
     if (!editing) return;
-    if (!editing.title.trim()) {
+    const title = editing.title.trim();
+    if (!title) {
       toast.error('Add a title for this block');
+      return;
+    }
+    if (
+      !Number.isFinite(editing.start_minute) ||
+      !Number.isFinite(editing.end_minute) ||
+      editing.start_minute < 0 || editing.start_minute >= 24 * 60 ||
+      editing.end_minute <= 0 || editing.end_minute > 24 * 60
+    ) {
+      toast.error('Invalid time values');
       return;
     }
     if (editing.end_minute <= editing.start_minute) {
       toast.error('End must be after start');
+      return;
+    }
+    if (editing.day_of_week < 0 || editing.day_of_week > 6) {
+      toast.error('Invalid day');
+      return;
+    }
+    if (!CATEGORIES.includes(editing.category)) {
+      toast.error('Invalid category');
       return;
     }
     if (hasConflict({
@@ -176,7 +194,7 @@ const Timetable = () => {
       return;
     }
     const payload: NewTimeBlock = {
-      title: editing.title.trim(),
+      title,
       category: editing.category,
       color: CATEGORY_COLORS[editing.category],
       day_of_week: editing.day_of_week,
@@ -184,13 +202,17 @@ const Timetable = () => {
       end_minute: editing.end_minute,
       notes: editing.notes.trim() || null,
     };
+    setSaving(true);
     try {
       if (editing.id) await update(editing.id, payload);
       else await add(payload);
       setEditing(null);
       toast.success(editing.id ? 'Block updated' : 'Block added');
     } catch (e: any) {
-      toast.error(e.message ?? 'Failed to save');
+      console.error('[Timetable] save failed', e, payload);
+      toast.error(e?.message ?? 'Failed to save');
+    } finally {
+      setSaving(false);
     }
   };
 
