@@ -499,6 +499,7 @@ const Timetable = () => {
           </div>
         </div>
       </div>
+      )}
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-md">
