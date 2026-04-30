@@ -684,8 +684,32 @@ const Timetable = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setConfirmClone(false)}>Cancel</Button>
-            <Button size="sm" variant="destructive" onClick={runClone}>Replace</Button>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmClone(false)} disabled={cloning}>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={runClone} disabled={cloning}>
+              {cloning && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+              {cloning ? 'Replacing…' : 'Replace'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear-Day confirmation */}
+      <Dialog open={clearTarget !== null} onOpenChange={(o) => !o && !clearing && setClearTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">
+              Clear {clearTarget !== null ? DAYS[clearTarget] : ''}?
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              This deletes every block on {clearTarget !== null ? DAYS[clearTarget] : ''}. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setClearTarget(null)} disabled={clearing}>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={runClearDay} disabled={clearing}>
+              {clearing && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+              {clearing ? 'Clearing…' : 'Clear day'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
