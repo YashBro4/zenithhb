@@ -1,13 +1,15 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, X, Clock, Copy } from 'lucide-react';
+import { Plus, Trash2, X, Clock, Copy, Loader2, RefreshCw, Eraser, Bell, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useTimeBlocks, CATEGORIES, CATEGORY_COLORS, type TimeBlock, type NewTimeBlock } from '@/hooks/useTimeBlocks';
+import { useReminders } from '@/hooks/useReminders';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
