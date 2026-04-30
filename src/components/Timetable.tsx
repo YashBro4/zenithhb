@@ -576,8 +576,11 @@ const Timetable = () => {
                   </Button>
                 ) : <span />}
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>Cancel</Button>
-                  <Button size="sm" onClick={save}>Save</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button>
+                  <Button size="sm" onClick={save} disabled={saving}>
+                    {saving && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+                    {saving ? 'Saving…' : 'Save'}
+                  </Button>
                 </div>
               </div>
             </div>
