@@ -151,7 +151,7 @@ const HabitTracker = ({
         </div>
       )}
 
-      {/* Habit cards — single shared horizontal scroll */}
+      {/* Habit cards — single shared horizontal scroll, perfectly aligned grid */}
       {habits.length === 0 ? (
         <div className="glass rounded-2xl p-10 text-center">
           <p className="text-muted-foreground text-sm">
@@ -161,7 +161,36 @@ const HabitTracker = ({
       ) : (
         <div className="glass rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
-            <div className="min-w-max">
+            <div
+              className="min-w-max grid"
+              style={{
+                // Sticky info column + 1 column per day. 28px circle + 6px gap = 34px.
+                gridTemplateColumns: `220px repeat(${daysInMonth}, 28px)`,
+                columnGap: '6px',
+              }}
+            >
+              {/* Header row: empty label cell + day numbers */}
+              <div className="sticky left-0 z-20 bg-card/95 backdrop-blur-sm px-3 py-2 border-b border-r border-border/40">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Habit</p>
+              </div>
+              {Array.from({ length: daysInMonth }, (_, i) => {
+                const day = i + 1;
+                const dateStr = format(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day), 'yyyy-MM-dd');
+                const isToday = dateStr === today;
+                return (
+                  <div
+                    key={`h-${day}`}
+                    className={cn(
+                      'h-9 flex items-center justify-center text-[10px] font-medium border-b border-border/40',
+                      isToday ? 'text-primary' : 'text-muted-foreground/70'
+                    )}
+                  >
+                    {day}
+                  </div>
+                );
+              })}
+
+              {/* One contents-row per habit, with circles in matching grid cells */}
               {habits.map((habit, idx) => {
                 const goal = (habit as any).weekly_goal ?? 7;
                 const streak = calcStreak(habit.id, completions);
@@ -170,17 +199,16 @@ const HabitTracker = ({
                 const habitCreated = habit.created_at ? format(new Date(habit.created_at), 'yyyy-MM-dd') : null;
 
                 return (
-                  <div
-                    key={habit.id}
-                    className={cn(
-                      'group flex items-center gap-3 px-3 py-3 hover:bg-muted/30 transition-colors',
-                      idx > 0 && 'border-t border-border/40'
-                    )}
-                  >
-                    {/* Sticky-left habit info column */}
-                    <div className="sticky left-0 z-10 bg-card/95 backdrop-blur-sm pr-3 py-1 flex items-center gap-2.5 min-w-[200px] max-w-[240px] border-r border-border/40">
+                  <div key={habit.id} className="contents group">
+                    {/* Sticky info cell */}
+                    <div
+                      className={cn(
+                        'sticky left-0 z-10 bg-card/95 backdrop-blur-sm px-3 flex items-center gap-2.5 border-r border-border/40',
+                        idx > 0 && 'border-t'
+                      )}
+                    >
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 py-2">
                         <div className="flex items-center gap-1.5">
                           <h3 className="font-medium text-sm text-foreground truncate">{habit.name}</h3>
                           {streak > 0 && (
@@ -213,27 +241,32 @@ const HabitTracker = ({
                       </Button>
                     </div>
 
-                    {/* Day circles */}
-                    <div className="flex items-center gap-1.5">
-                      {Array.from({ length: daysInMonth }, (_, i) => {
-                        const day = i + 1;
-                        const dateStr = format(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day), 'yyyy-MM-dd');
-                        const completed = isCompleted(habit.id, dateStr);
-                        const isToday = dateStr === today;
-                        const isPast = dateStr < today;
-                        const isFuture = dateStr > today;
-                        const isBeforeCreation = habitCreated ? dateStr < habitCreated : false;
-                        const isMissed = isPast && !completed && !isBeforeCreation;
-                        const isClickable = !isBeforeCreation && !isFuture;
+                    {/* Day cells — each occupies one grid column for pixel-perfect alignment */}
+                    {Array.from({ length: daysInMonth }, (_, i) => {
+                      const day = i + 1;
+                      const dateStr = format(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day), 'yyyy-MM-dd');
+                      const completed = isCompleted(habit.id, dateStr);
+                      const isToday = dateStr === today;
+                      const isPast = dateStr < today;
+                      const isFuture = dateStr > today;
+                      const isBeforeCreation = habitCreated ? dateStr < habitCreated : false;
+                      const isMissed = isPast && !completed && !isBeforeCreation;
+                      const isClickable = !isBeforeCreation && !isFuture;
 
-                        return (
+                      return (
+                        <div
+                          key={`${habit.id}-${day}`}
+                          className={cn(
+                            'h-11 flex items-center justify-center group-hover:bg-muted/30 transition-colors',
+                            idx > 0 && 'border-t border-border/40'
+                          )}
+                        >
                           <button
-                            key={day}
                             onClick={() => isClickable && onToggleCompletion(habit.id, dateStr)}
                             disabled={!isClickable}
                             title={dateStr}
                             className={cn(
-                              'relative w-7 h-7 rounded-full transition-all duration-200 inline-flex items-center justify-center text-[10px] font-medium shrink-0',
+                              'relative w-7 h-7 rounded-full transition-all duration-200 inline-flex items-center justify-center text-[10px] font-medium',
                               isBeforeCreation && 'opacity-0 pointer-events-none',
                               !isBeforeCreation && !completed && !isMissed && 'bg-muted/50 hover:bg-muted text-muted-foreground',
                               !isBeforeCreation && !completed && isMissed && 'bg-destructive/10 text-destructive/70',
@@ -254,9 +287,9 @@ const HabitTracker = ({
                               day
                             )}
                           </button>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
