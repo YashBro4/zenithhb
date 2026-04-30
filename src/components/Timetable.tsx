@@ -649,17 +649,26 @@ const Timetable = () => {
               </button>
             </div>
           </div>
+          {lastCloneError && (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5">
+              <span className="text-[11px] text-destructive">{lastCloneError}</span>
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={runClone} disabled={cloning}>
+                <RefreshCw className="w-3 h-3 mr-1" /> Retry
+              </Button>
+            </div>
+          )}
           <DialogFooter className="gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setCloneSourceDay(null)}>Cancel</Button>
+            <Button variant="ghost" size="sm" onClick={() => setCloneSourceDay(null)} disabled={cloning}>Cancel</Button>
             <Button
               size="sm"
-              disabled={cloneTargets.length === 0}
+              disabled={cloneTargets.length === 0 || cloning}
               onClick={() => {
                 if (cloneMode === 'replace') setConfirmClone(true);
                 else runClone();
               }}
             >
-              Apply
+              {cloning && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+              {cloning ? 'Applying…' : 'Apply'}
             </Button>
           </DialogFooter>
         </DialogContent>
