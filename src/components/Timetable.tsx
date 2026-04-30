@@ -296,21 +296,74 @@ const Timetable = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-serif font-semibold text-foreground">The Architect</h2>
           <p className="text-xs text-muted-foreground">Design your week. Click any cell to add a block.</p>
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {CATEGORIES.map(c => (
-            <span key={c} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground capitalize">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[c] }} />
-              {c}
-            </span>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Smart Reminders */}
+          <button
+            onClick={() => reminders.toggle(!reminders.enabled)}
+            disabled={reminders.registering || !reminders.supported}
+            title={
+              !reminders.supported ? 'Notifications not supported in this browser'
+              : reminders.previewBlocked ? 'Reminders only fire on the published site (not the editor preview)'
+              : reminders.permission === 'denied' ? 'Notifications denied — enable them in browser settings'
+              : reminders.enabled ? 'Smart Reminders ON · 5 min before each block' : 'Enable Smart Reminders'
+            }
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors',
+              reminders.enabled
+                ? 'border-primary/40 bg-primary/10 text-primary'
+                : 'border-border/40 text-muted-foreground hover:bg-muted/50',
+              (!reminders.supported || reminders.permission === 'denied') && 'opacity-60 cursor-not-allowed'
+            )}
+          >
+            {reminders.registering
+              ? <Loader2 className="w-3 h-3 animate-spin" />
+              : reminders.enabled
+                ? <Bell className="w-3 h-3" />
+                : <BellOff className="w-3 h-3" />}
+            Reminders {reminders.enabled ? 'on' : 'off'}
+          </button>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {CATEGORIES.map(c => (
+              <span key={c} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground capitalize">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[c] }} />
+                {c}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
+      {reminders.previewBlocked && reminders.enabled && (
+        <div className="text-[10px] text-muted-foreground glass rounded-md px-3 py-1.5">
+          Reminders are scheduled, but browser notifications only fire on the <strong>published site</strong> — not inside the editor preview.
+        </div>
+      )}
+
+      {isError && (
+        <div className="glass rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-foreground">Failed to load schedule</p>
+            <p className="text-xs text-muted-foreground">Check your connection and try again.</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => refetch?.()}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Retry
+          </Button>
+        </div>
+      )}
+
+      {isLoading && !isError && (
+        <div className="glass rounded-2xl p-4 space-y-2">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-[280px] w-full" />
+        </div>
+      )}
+
+      {!isLoading && !isError && (
       <div className="glass rounded-2xl overflow-hidden">
         {/* Header row */}
         <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-border/30 bg-card/60">
@@ -327,13 +380,22 @@ const Timetable = () => {
               >
                 <span>{d}</span>
                 {dayCount > 0 && (
-                  <button
-                    onClick={() => openClone(i)}
-                    title={`Copy ${d}'s schedule to other days`}
-                    className="opacity-40 hover:opacity-100 hover:text-primary transition-opacity"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openClone(i)}
+                      title={`Copy ${d}'s schedule to other days`}
+                      className="opacity-40 hover:opacity-100 hover:text-primary transition-opacity"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => setClearTarget(i)}
+                      title={`Clear all of ${d}'s blocks`}
+                      className="opacity-40 hover:opacity-100 hover:text-destructive transition-opacity"
+                    >
+                      <Eraser className="w-3 h-3" />
+                    </button>
+                  </>
                 )}
               </div>
             );
