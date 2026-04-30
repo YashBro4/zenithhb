@@ -46,8 +46,14 @@ interface EditState {
 }
 
 const Timetable = () => {
-  const { blocks, add, update, remove, cloneDays } = useTimeBlocks();
+  const { blocks, add, update, remove, cloneDays, clearDay, isLoading, isError, refetch } = useTimeBlocks();
+  const reminders = useReminders();
   const [editing, setEditing] = useState<EditState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [cloning, setCloning] = useState(false);
+  const [lastCloneError, setLastCloneError] = useState<string | null>(null);
+  const [clearTarget, setClearTarget] = useState<number | null>(null);
+  const [clearing, setClearing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to current hour on mount
