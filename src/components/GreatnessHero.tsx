@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Quote, Sparkles } from 'lucide-react';
+import { Quote, Sparkles, RefreshCw } from 'lucide-react';
 import { getDailyFigure } from '@/data/greatness';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const GreatnessHero = () => {
   const [figure, setFigure] = useState(() => getDailyFigure());
+  const [imageError, setImageError] = useState(false);
+  const [imageKey, setImageKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const retryQuote = () => {
+    setImageError(false);
+    setImageKey(k => k + 1);
+    setFigure(getDailyFigure());
+  };
 
   // Magnetic tilt
   const mx = useMotionValue(0);
