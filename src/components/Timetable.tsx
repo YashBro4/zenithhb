@@ -246,6 +246,8 @@ const Timetable = () => {
 
   const runClone = async () => {
     if (cloneSourceDay === null || cloneTargets.length === 0) return;
+    setCloning(true);
+    setLastCloneError(null);
     try {
       const { added, skipped } = await cloneDays({
         sourceDay: cloneSourceDay,
@@ -264,7 +266,27 @@ const Timetable = () => {
       setCloneSourceDay(null);
       setCloneTargets([]);
     } catch (e: any) {
-      toast.error(e.message ?? 'Failed to clone');
+      const msg = e?.message ?? 'Failed to clone';
+      console.error('[Timetable] clone failed', e);
+      setLastCloneError(msg);
+      toast.error(msg);
+    } finally {
+      setCloning(false);
+    }
+  };
+
+  const runClearDay = async () => {
+    if (clearTarget === null) return;
+    const day = clearTarget;
+    setClearing(true);
+    try {
+      await clearDay(day);
+      toast.success(`Cleared ${DAYS[day]}`);
+      setClearTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to clear day');
+    } finally {
+      setClearing(false);
     }
   };
 
