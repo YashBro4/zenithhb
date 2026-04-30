@@ -1,13 +1,15 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, X, Clock, Copy } from 'lucide-react';
+import { Plus, Trash2, X, Clock, Copy, Loader2, RefreshCw, Eraser, Bell, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useTimeBlocks, CATEGORIES, CATEGORY_COLORS, type TimeBlock, type NewTimeBlock } from '@/hooks/useTimeBlocks';
+import { useReminders } from '@/hooks/useReminders';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -44,8 +46,14 @@ interface EditState {
 }
 
 const Timetable = () => {
-  const { blocks, add, update, remove, cloneDays } = useTimeBlocks();
+  const { blocks, add, update, remove, cloneDays, clearDay, isLoading, isError, refetch } = useTimeBlocks();
+  const reminders = useReminders();
   const [editing, setEditing] = useState<EditState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [cloning, setCloning] = useState(false);
+  const [lastCloneError, setLastCloneError] = useState<string | null>(null);
+  const [clearTarget, setClearTarget] = useState<number | null>(null);
+  const [clearing, setClearing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to current hour on mount
@@ -150,12 +158,30 @@ const Timetable = () => {
 
   const save = async () => {
     if (!editing) return;
-    if (!editing.title.trim()) {
+    const title = editing.title.trim();
+    if (!title) {
       toast.error('Add a title for this block');
+      return;
+    }
+    if (
+      !Number.isFinite(editing.start_minute) ||
+      !Number.isFinite(editing.end_minute) ||
+      editing.start_minute < 0 || editing.start_minute >= 24 * 60 ||
+      editing.end_minute <= 0 || editing.end_minute > 24 * 60
+    ) {
+      toast.error('Invalid time values');
       return;
     }
     if (editing.end_minute <= editing.start_minute) {
       toast.error('End must be after start');
+      return;
+    }
+    if (editing.day_of_week < 0 || editing.day_of_week > 6) {
+      toast.error('Invalid day');
+      return;
+    }
+    if (!CATEGORIES.includes(editing.category)) {
+      toast.error('Invalid category');
       return;
     }
     if (hasConflict({
@@ -168,7 +194,7 @@ const Timetable = () => {
       return;
     }
     const payload: NewTimeBlock = {
-      title: editing.title.trim(),
+      title,
       category: editing.category,
       color: CATEGORY_COLORS[editing.category],
       day_of_week: editing.day_of_week,
@@ -176,13 +202,17 @@ const Timetable = () => {
       end_minute: editing.end_minute,
       notes: editing.notes.trim() || null,
     };
+    setSaving(true);
     try {
       if (editing.id) await update(editing.id, payload);
       else await add(payload);
       setEditing(null);
       toast.success(editing.id ? 'Block updated' : 'Block added');
     } catch (e: any) {
-      toast.error(e.message ?? 'Failed to save');
+      console.error('[Timetable] save failed', e, payload);
+      toast.error(e?.message ?? 'Failed to save');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -216,6 +246,8 @@ const Timetable = () => {
 
   const runClone = async () => {
     if (cloneSourceDay === null || cloneTargets.length === 0) return;
+    setCloning(true);
+    setLastCloneError(null);
     try {
       const { added, skipped } = await cloneDays({
         sourceDay: cloneSourceDay,
@@ -234,7 +266,27 @@ const Timetable = () => {
       setCloneSourceDay(null);
       setCloneTargets([]);
     } catch (e: any) {
-      toast.error(e.message ?? 'Failed to clone');
+      const msg = e?.message ?? 'Failed to clone';
+      console.error('[Timetable] clone failed', e);
+      setLastCloneError(msg);
+      toast.error(msg);
+    } finally {
+      setCloning(false);
+    }
+  };
+
+  const runClearDay = async () => {
+    if (clearTarget === null) return;
+    const day = clearTarget;
+    setClearing(true);
+    try {
+      await clearDay(day);
+      toast.success(`Cleared ${DAYS[day]}`);
+      setClearTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to clear day');
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -244,21 +296,74 @@ const Timetable = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-serif font-semibold text-foreground">The Architect</h2>
           <p className="text-xs text-muted-foreground">Design your week. Click any cell to add a block.</p>
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {CATEGORIES.map(c => (
-            <span key={c} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground capitalize">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[c] }} />
-              {c}
-            </span>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Smart Reminders */}
+          <button
+            onClick={() => reminders.toggle(!reminders.enabled)}
+            disabled={reminders.registering || !reminders.supported}
+            title={
+              !reminders.supported ? 'Notifications not supported in this browser'
+              : reminders.previewBlocked ? 'Reminders only fire on the published site (not the editor preview)'
+              : reminders.permission === 'denied' ? 'Notifications denied — enable them in browser settings'
+              : reminders.enabled ? 'Smart Reminders ON · 5 min before each block' : 'Enable Smart Reminders'
+            }
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors',
+              reminders.enabled
+                ? 'border-primary/40 bg-primary/10 text-primary'
+                : 'border-border/40 text-muted-foreground hover:bg-muted/50',
+              (!reminders.supported || reminders.permission === 'denied') && 'opacity-60 cursor-not-allowed'
+            )}
+          >
+            {reminders.registering
+              ? <Loader2 className="w-3 h-3 animate-spin" />
+              : reminders.enabled
+                ? <Bell className="w-3 h-3" />
+                : <BellOff className="w-3 h-3" />}
+            Reminders {reminders.enabled ? 'on' : 'off'}
+          </button>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {CATEGORIES.map(c => (
+              <span key={c} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground capitalize">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[c] }} />
+                {c}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
+      {reminders.previewBlocked && reminders.enabled && (
+        <div className="text-[10px] text-muted-foreground glass rounded-md px-3 py-1.5">
+          Reminders are scheduled, but browser notifications only fire on the <strong>published site</strong> — not inside the editor preview.
+        </div>
+      )}
+
+      {isError && (
+        <div className="glass rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-foreground">Failed to load schedule</p>
+            <p className="text-xs text-muted-foreground">Check your connection and try again.</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => refetch?.()}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Retry
+          </Button>
+        </div>
+      )}
+
+      {isLoading && !isError && (
+        <div className="glass rounded-2xl p-4 space-y-2">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-[280px] w-full" />
+        </div>
+      )}
+
+      {!isLoading && !isError && (
       <div className="glass rounded-2xl overflow-hidden">
         {/* Header row */}
         <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-border/30 bg-card/60">
@@ -275,13 +380,22 @@ const Timetable = () => {
               >
                 <span>{d}</span>
                 {dayCount > 0 && (
-                  <button
-                    onClick={() => openClone(i)}
-                    title={`Copy ${d}'s schedule to other days`}
-                    className="opacity-40 hover:opacity-100 hover:text-primary transition-opacity"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openClone(i)}
+                      title={`Copy ${d}'s schedule to other days`}
+                      className="opacity-40 hover:opacity-100 hover:text-primary transition-opacity"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => setClearTarget(i)}
+                      title={`Clear all of ${d}'s blocks`}
+                      className="opacity-40 hover:opacity-100 hover:text-destructive transition-opacity"
+                    >
+                      <Eraser className="w-3 h-3" />
+                    </button>
+                  </>
                 )}
               </div>
             );
@@ -385,6 +499,7 @@ const Timetable = () => {
           </div>
         </div>
       </div>
+      )}
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-md">
@@ -461,8 +576,11 @@ const Timetable = () => {
                   </Button>
                 ) : <span />}
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>Cancel</Button>
-                  <Button size="sm" onClick={save}>Save</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button>
+                  <Button size="sm" onClick={save} disabled={saving}>
+                    {saving && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+                    {saving ? 'Saving…' : 'Save'}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -531,17 +649,26 @@ const Timetable = () => {
               </button>
             </div>
           </div>
+          {lastCloneError && (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5">
+              <span className="text-[11px] text-destructive">{lastCloneError}</span>
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={runClone} disabled={cloning}>
+                <RefreshCw className="w-3 h-3 mr-1" /> Retry
+              </Button>
+            </div>
+          )}
           <DialogFooter className="gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setCloneSourceDay(null)}>Cancel</Button>
+            <Button variant="ghost" size="sm" onClick={() => setCloneSourceDay(null)} disabled={cloning}>Cancel</Button>
             <Button
               size="sm"
-              disabled={cloneTargets.length === 0}
+              disabled={cloneTargets.length === 0 || cloning}
               onClick={() => {
                 if (cloneMode === 'replace') setConfirmClone(true);
                 else runClone();
               }}
             >
-              Apply
+              {cloning && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+              {cloning ? 'Applying…' : 'Apply'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -557,8 +684,32 @@ const Timetable = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setConfirmClone(false)}>Cancel</Button>
-            <Button size="sm" variant="destructive" onClick={runClone}>Replace</Button>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmClone(false)} disabled={cloning}>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={runClone} disabled={cloning}>
+              {cloning && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+              {cloning ? 'Replacing…' : 'Replace'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear-Day confirmation */}
+      <Dialog open={clearTarget !== null} onOpenChange={(o) => !o && !clearing && setClearTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">
+              Clear {clearTarget !== null ? DAYS[clearTarget] : ''}?
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              This deletes every block on {clearTarget !== null ? DAYS[clearTarget] : ''}. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setClearTarget(null)} disabled={clearing}>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={runClearDay} disabled={clearing}>
+              {clearing && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+              {clearing ? 'Clearing…' : 'Clear day'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

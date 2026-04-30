@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Quote, Sparkles } from 'lucide-react';
+import { Quote, Sparkles, RefreshCw } from 'lucide-react';
 import { getDailyFigure } from '@/data/greatness';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const GreatnessHero = () => {
   const [figure, setFigure] = useState(() => getDailyFigure());
+  const [imageError, setImageError] = useState(false);
+  const [imageKey, setImageKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const retryQuote = () => {
+    setImageError(false);
+    setImageKey(k => k + 1);
+    setFigure(getDailyFigure());
+  };
 
   // Magnetic tilt
   const mx = useMotionValue(0);
@@ -62,16 +71,26 @@ const GreatnessHero = () => {
         className="md:col-span-3 row-span-2 relative overflow-hidden rounded-[1.5rem] border border-border/40 bg-card/40 backdrop-blur-xl shadow-[0_0_60px_-20px_hsl(var(--primary)/0.35)] aspect-[4/5] md:aspect-auto md:min-h-[420px] group"
       >
         {/* Image with parallax */}
-        <motion.img
-          key={figure.image}
-          src={figure.image}
-          alt={`${figure.name} — ${figure.role}`}
-          width={1024}
-          height={1280}
-          loading="eager"
-          style={{ x: parallaxX, y: parallaxY }}
-          className="absolute inset-0 w-full h-full object-cover scale-110 will-change-transform"
-        />
+        {!imageError ? (
+          <motion.img
+            key={`${figure.image}-${imageKey}`}
+            src={figure.image}
+            alt={`${figure.name} — ${figure.role}`}
+            width={1024}
+            height={1280}
+            loading="eager"
+            onError={() => setImageError(true)}
+            style={{ x: parallaxX, y: parallaxY }}
+            className="absolute inset-0 w-full h-full object-cover scale-110 will-change-transform"
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/40 text-center p-6">
+            <p className="text-xs text-muted-foreground">Couldn't load today's portrait.</p>
+            <Button size="sm" variant="outline" onClick={retryQuote}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1" /> Retry Loading Quote
+            </Button>
+          </div>
+        )}
         {/* Vignette */}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         {/* Spotlight cursor reveal */}
