@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, X, Clock, Copy, Loader2, RefreshCw, Eraser, Bell, BellOff } from 'lucide-react';
+import { Plus, Trash2, X, Clock, Copy, Loader2, RefreshCw, Eraser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,7 +9,6 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTimeBlocks, CATEGORIES, CATEGORY_COLORS, type TimeBlock, type NewTimeBlock } from '@/hooks/useTimeBlocks';
-import { useReminders } from '@/hooks/useReminders';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -47,7 +46,6 @@ interface EditState {
 
 const Timetable = () => {
   const { blocks, add, update, remove, cloneDays, clearDay, isLoading, isError, refetch } = useTimeBlocks();
-  const reminders = useReminders();
   const [editing, setEditing] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
   const [cloning, setCloning] = useState(false);
@@ -302,31 +300,6 @@ const Timetable = () => {
           <p className="text-xs text-muted-foreground">Design your week. Click any cell to add a block.</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Smart Reminders */}
-          <button
-            onClick={() => reminders.toggle(!reminders.enabled)}
-            disabled={reminders.registering || !reminders.supported}
-            title={
-              !reminders.supported ? 'Notifications not supported in this browser'
-              : reminders.previewBlocked ? 'Reminders only fire on the published site (not the editor preview)'
-              : reminders.permission === 'denied' ? 'Notifications denied — enable them in browser settings'
-              : reminders.enabled ? 'Smart Reminders ON · 5 min before each block' : 'Enable Smart Reminders'
-            }
-            className={cn(
-              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors',
-              reminders.enabled
-                ? 'border-primary/40 bg-primary/10 text-primary'
-                : 'border-border/40 text-muted-foreground hover:bg-muted/50',
-              (!reminders.supported || reminders.permission === 'denied') && 'opacity-60 cursor-not-allowed'
-            )}
-          >
-            {reminders.registering
-              ? <Loader2 className="w-3 h-3 animate-spin" />
-              : reminders.enabled
-                ? <Bell className="w-3 h-3" />
-                : <BellOff className="w-3 h-3" />}
-            Reminders {reminders.enabled ? 'on' : 'off'}
-          </button>
           <div className="flex items-center gap-1.5 flex-wrap">
             {CATEGORIES.map(c => (
               <span key={c} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground capitalize">
@@ -337,12 +310,6 @@ const Timetable = () => {
           </div>
         </div>
       </div>
-
-      {reminders.previewBlocked && reminders.enabled && (
-        <div className="text-[10px] text-muted-foreground glass rounded-md px-3 py-1.5">
-          Reminders are scheduled, but browser notifications only fire on the <strong>published site</strong> — not inside the editor preview.
-        </div>
-      )}
 
       {isError && (
         <div className="glass rounded-2xl p-4 flex items-center justify-between">
