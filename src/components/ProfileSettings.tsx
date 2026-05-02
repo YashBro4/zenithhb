@@ -4,7 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Camera, User } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { useReminders } from '@/hooks/useReminders';
+import { ArrowLeft, Bell, BellOff, Camera, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 const getSignedAvatarUrl = async (storagePath: string): Promise<string | null> => {
@@ -25,6 +27,7 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
   const { user, isGuest } = useAuth();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reminders = useReminders();
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', user?.id],
@@ -104,6 +107,43 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
     updateProfile.mutate({ display_name: displayName, avatar_url: avatarPath });
   };
 
+  const notificationSettings = (
+    <div className="space-y-3 rounded-2xl border border-border/50 bg-background/30 p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            {reminders.enabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">Browser Notifications</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Receive a daily schedule summary and upcoming block alerts on your desktop.
+            </p>
+          </div>
+        </div>
+        {reminders.registering ? (
+          <Loader2 className="mt-2 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+        ) : (
+          <Switch
+            checked={reminders.enabled}
+            disabled={reminders.registering || !reminders.supported || reminders.permission === 'denied'}
+            onCheckedChange={(checked) => reminders.toggle(checked)}
+            aria-label="Toggle browser notifications"
+          />
+        )}
+      </div>
+      {!reminders.supported && (
+        <p className="text-xs text-muted-foreground">This browser does not support desktop notifications.</p>
+      )}
+      {reminders.permission === 'denied' && (
+        <p className="text-xs text-destructive">Notifications are blocked. Enable them in your browser site settings.</p>
+      )}
+      {reminders.previewBlocked && reminders.enabled && (
+        <p className="text-xs text-muted-foreground">Notifications are enabled and will fire on the published site.</p>
+      )}
+    </div>
+  );
+
   if (isGuest) {
     return (
       <div className="space-y-6">
@@ -115,6 +155,10 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
         </div>
         <div className="glass rounded-2xl p-8 text-center">
           <p className="text-muted-foreground text-sm">Sign in to customize your profile</p>
+        </div>
+        <div className="glass rounded-2xl p-6 space-y-4">
+          <h3 className="text-base font-serif font-semibold text-foreground">General Settings</h3>
+          {notificationSettings}
         </div>
       </div>
     );
@@ -187,6 +231,11 @@ const ProfileSettings = ({ onBack }: ProfileSettingsProps) => {
             disabled
             className="rounded-xl border-border bg-muted/50 text-muted-foreground"
           />
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-serif font-semibold text-foreground">General Settings</h3>
+          {notificationSettings}
         </div>
 
         <Button onClick={handleSave} disabled={updateProfile.isPending} className="w-full rounded-xl">
