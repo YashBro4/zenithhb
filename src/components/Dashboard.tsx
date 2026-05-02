@@ -11,6 +11,7 @@ import ProfileSettings from '@/components/ProfileSettings';
 import ThemeToggle from '@/components/ThemeToggle';
 import GreatnessHero from '@/components/GreatnessHero';
 import Timetable from '@/components/Timetable';
+import NotificationPrompt from '@/components/NotificationPrompt';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
