@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTimeBlocks } from './useTimeBlocks';
 
 const STORAGE_KEY = 'zenith_reminders_enabled';
+const DIGEST_KEY = 'zenith_schedule_digest_date';
 const LEAD_MINUTES = 5;
+const DIGEST_HOUR = 8;
 
 // Skip SW in Lovable preview iframe — service workers in the editor preview
 // pollute caching and don't fire notifications anyway.
@@ -22,6 +24,16 @@ const canUseSW = () =>
   !isInIframe();
 
 type Permission = 'default' | 'granted' | 'denied' | 'unsupported';
+
+const formatBlockTime = (m: number) => {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${String(min).padStart(2, '0')} ${ampm}`;
+};
+
+const dateKey = (date: Date) => date.toISOString().slice(0, 10);
 
 export const useReminders = () => {
   const { blocks } = useTimeBlocks();
@@ -47,21 +59,42 @@ export const useReminders = () => {
       const day = new Date(now);
       day.setDate(day.getDate() + d);
       const dow = day.getDay();
-      const dayBlocks = blocks.filter(b => b.day_of_week === dow);
+      const dayBlocks = blocks
+        .filter(b => b.day_of_week === dow)
+        .sort((a, b) => a.start_minute - b.start_minute);
+
+      if (d === 0 && dayBlocks.length > 0) {
+        const digestAt = new Date(day);
+        digestAt.setHours(DIGEST_HOUR, 0, 0, 0);
+        const key = dateKey(day);
+        let alreadySent = false;
+        try { alreadySent = localStorage.getItem(DIGEST_KEY) === key; } catch {}
+        if (!alreadySent) {
+          const digestFireAt = digestAt.getTime() > now.getTime() ? digestAt.getTime() : now.getTime() + 2000;
+          const preview = dayBlocks
+            .slice(0, 4)
+            .map(b => `${formatBlockTime(b.start_minute)} ${b.title}`)
+            .join(' · ');
+          items.push({
+            fireAt: digestFireAt,
+            title: "Today's Zenith schedule",
+            body: `${dayBlocks.length} block${dayBlocks.length === 1 ? '' : 's'} today · ${preview}`,
+            tag: `zenith-daily-${key}`,
+          });
+          try { localStorage.setItem(DIGEST_KEY, key); } catch {}
+        }
+      }
+
       dayBlocks.forEach(b => {
         const fire = new Date(day);
         fire.setHours(0, 0, 0, 0);
         fire.setMinutes(b.start_minute - LEAD_MINUTES);
         const ts = fire.getTime();
         if (ts > now.getTime() && ts < now.getTime() + 24 * 60 * 60 * 1000) {
-          const hh = Math.floor(b.start_minute / 60);
-          const mm = b.start_minute % 60;
-          const ampm = hh >= 12 ? 'PM' : 'AM';
-          const h12 = ((hh + 11) % 12) + 1;
           items.push({
             fireAt: ts,
-            title: `Up next: ${b.title}`,
-            body: `Starts in ${LEAD_MINUTES} min · ${h12}:${String(mm).padStart(2, '0')} ${ampm}`,
+            title: `Upcoming: ${b.title}`,
+            body: `Starts in ${LEAD_MINUTES} minutes · ${formatBlockTime(b.start_minute)}`,
             tag: `zenith-${b.id}-${ts}`,
           });
         }
@@ -124,3 +157,5 @@ export const useReminders = () => {
     previewBlocked: !canUseSW() && typeof window !== 'undefined' && 'Notification' in window,
   };
 };
+
+export type RemindersState = ReturnType<typeof useReminders>;
