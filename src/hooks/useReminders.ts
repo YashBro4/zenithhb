@@ -49,8 +49,9 @@ export const useReminders = () => {
   // Schedule SW notifications for the next 24h.
   const sync = useCallback(async () => {
     if (!enabled || permission !== 'granted' || !canUseSW()) return;
-    const reg = await navigator.serviceWorker.getRegistration('/reminder-sw.js');
-    if (!reg || !reg.active) return;
+    const reg = await navigator.serviceWorker.ready;
+    const worker = reg.active || reg.waiting || reg.installing;
+    if (!worker) return;
 
     const now = new Date();
     const items: Array<{ fireAt: number; title: string; body: string; tag: string }> = [];
@@ -100,7 +101,7 @@ export const useReminders = () => {
         }
       });
     }
-    reg.active.postMessage({ type: 'SCHEDULE', items });
+    worker.postMessage({ type: 'SCHEDULE', items });
   }, [enabled, permission, blocks]);
 
   // Register/unregister SW based on enabled flag.
@@ -109,8 +110,19 @@ export const useReminders = () => {
     if (enabled && permission === 'granted') {
       navigator.serviceWorker
         .register('/reminder-sw.js')
-        .then(() => sync())
-        .catch(() => {});
+        .then(async (reg) => {
+          await navigator.serviceWorker.ready;
+          await sync();
+          if (reg.active) {
+            reg.active.postMessage({
+              type: 'NOTIFY_NOW',
+              title: 'Zenith notifications are on',
+              body: 'Your daily schedule and upcoming blocks will appear here.',
+              tag: 'zenith-notifications-enabled',
+            });
+          }
+        })
+        .catch((error) => console.error('[Reminders] registration failed', error));
     }
   }, [enabled, permission, sync]);
 
