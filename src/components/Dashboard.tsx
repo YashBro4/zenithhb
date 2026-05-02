@@ -11,6 +11,7 @@ import ProfileSettings from '@/components/ProfileSettings';
 import ThemeToggle from '@/components/ThemeToggle';
 import GreatnessHero from '@/components/GreatnessHero';
 import Timetable from '@/components/Timetable';
+import NotificationPrompt from '@/components/NotificationPrompt';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -114,6 +115,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <NotificationPrompt />
       {/* Header */}
       <header className="sticky top-0 z-10 glass border-b border-border/30">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
