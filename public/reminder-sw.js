@@ -33,6 +33,15 @@ self.addEventListener('message', (event) => {
       timers.push(id);
     });
   }
+  if (data.type === 'NOTIFY_NOW') {
+    self.registration.showNotification(data.title || 'Zenith notifications', {
+      body: data.body || '',
+      tag: data.tag || 'zenith-notification-test',
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      silent: false,
+    });
+  }
   if (data.type === 'CLEAR') clearTimers();
 });
 
