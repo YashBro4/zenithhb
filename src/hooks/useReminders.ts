@@ -3,7 +3,8 @@ import { useTimeBlocks } from './useTimeBlocks';
 
 const STORAGE_KEY = 'zenith_reminders_enabled';
 const DIGEST_KEY = 'zenith_schedule_digest_date';
-const LEAD_MINUTES = 5;
+// Fire AT the start of the event (per spec). Set to a positive number to lead.
+const LEAD_MINUTES = 0;
 const DIGEST_HOUR = 8;
 
 // Skip SW in Lovable preview iframe — service workers in the editor preview
@@ -45,13 +46,15 @@ export const useReminders = () => {
     return Notification.permission as Permission;
   });
   const [registering, setRegistering] = useState(false);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
 
   // Schedule SW notifications for the next 24h.
   const sync = useCallback(async () => {
     if (!enabled || permission !== 'granted' || !canUseSW()) return;
-    const reg = await navigator.serviceWorker.ready;
-    const worker = reg.active || reg.waiting || reg.installing;
-    if (!worker) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const worker = reg.active || reg.waiting || reg.installing;
+      if (!worker) throw new Error('Service worker not active');
 
     const now = new Date();
     const items: Array<{ fireAt: number; title: string; body: string; tag: string }> = [];
@@ -94,15 +97,26 @@ export const useReminders = () => {
         if (ts > now.getTime() && ts < now.getTime() + 24 * 60 * 60 * 1000) {
           items.push({
             fireAt: ts,
-            title: `Upcoming: ${b.title}`,
-            body: `Starts in ${LEAD_MINUTES} minutes · ${formatBlockTime(b.start_minute)}`,
+            title: `Time for: ${b.title}`,
+            body: `It is now time for ${b.title} · ${formatBlockTime(b.start_minute)}`,
             tag: `zenith-${b.id}-${ts}`,
           });
         }
       });
     }
-    worker.postMessage({ type: 'SCHEDULE', items });
+      worker.postMessage({ type: 'SCHEDULE', items });
+      setLastSyncError(null);
+    } catch (e: any) {
+      const msg = e?.message ?? 'Schedule sync failed';
+      console.error('[Reminders] sync failed', e);
+      setLastSyncError(msg);
+      throw e;
+    }
   }, [enabled, permission, blocks]);
+
+  const retrySync = useCallback(async () => {
+    try { await sync(); } catch {}
+  }, [sync]);
 
   // Register/unregister SW based on enabled flag.
   useEffect(() => {
@@ -127,7 +141,7 @@ export const useReminders = () => {
   }, [enabled, permission, sync]);
 
   // Re-sync whenever blocks change.
-  useEffect(() => { sync(); }, [sync]);
+  useEffect(() => { sync().catch(() => {}); }, [sync]);
 
   const toggle = useCallback(async (next: boolean) => {
     if (!('Notification' in window)) {
@@ -165,6 +179,8 @@ export const useReminders = () => {
     permission,
     registering,
     toggle,
+    lastSyncError,
+    retrySync,
     supported: typeof window !== 'undefined' && 'Notification' in window,
     previewBlocked: !canUseSW() && typeof window !== 'undefined' && 'Notification' in window,
   };
