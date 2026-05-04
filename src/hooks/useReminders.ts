@@ -46,13 +46,15 @@ export const useReminders = () => {
     return Notification.permission as Permission;
   });
   const [registering, setRegistering] = useState(false);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
 
   // Schedule SW notifications for the next 24h.
   const sync = useCallback(async () => {
     if (!enabled || permission !== 'granted' || !canUseSW()) return;
-    const reg = await navigator.serviceWorker.ready;
-    const worker = reg.active || reg.waiting || reg.installing;
-    if (!worker) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const worker = reg.active || reg.waiting || reg.installing;
+      if (!worker) throw new Error('Service worker not active');
 
     const now = new Date();
     const items: Array<{ fireAt: number; title: string; body: string; tag: string }> = [];
