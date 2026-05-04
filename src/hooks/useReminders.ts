@@ -179,6 +179,8 @@ export const useReminders = () => {
     permission,
     registering,
     toggle,
+    lastSyncError,
+    retrySync,
     supported: typeof window !== 'undefined' && 'Notification' in window,
     previewBlocked: !canUseSW() && typeof window !== 'undefined' && 'Notification' in window,
   };
