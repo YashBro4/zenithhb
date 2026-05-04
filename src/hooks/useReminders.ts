@@ -3,7 +3,8 @@ import { useTimeBlocks } from './useTimeBlocks';
 
 const STORAGE_KEY = 'zenith_reminders_enabled';
 const DIGEST_KEY = 'zenith_schedule_digest_date';
-const LEAD_MINUTES = 5;
+// Fire AT the start of the event (per spec). Set to a positive number to lead.
+const LEAD_MINUTES = 0;
 const DIGEST_HOUR = 8;
 
 // Skip SW in Lovable preview iframe — service workers in the editor preview
