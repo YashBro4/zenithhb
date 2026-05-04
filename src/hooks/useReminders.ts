@@ -97,15 +97,26 @@ export const useReminders = () => {
         if (ts > now.getTime() && ts < now.getTime() + 24 * 60 * 60 * 1000) {
           items.push({
             fireAt: ts,
-            title: `Upcoming: ${b.title}`,
-            body: `Starts in ${LEAD_MINUTES} minutes · ${formatBlockTime(b.start_minute)}`,
+            title: `Time for: ${b.title}`,
+            body: `It is now time for ${b.title} · ${formatBlockTime(b.start_minute)}`,
             tag: `zenith-${b.id}-${ts}`,
           });
         }
       });
     }
-    worker.postMessage({ type: 'SCHEDULE', items });
+      worker.postMessage({ type: 'SCHEDULE', items });
+      setLastSyncError(null);
+    } catch (e: any) {
+      const msg = e?.message ?? 'Schedule sync failed';
+      console.error('[Reminders] sync failed', e);
+      setLastSyncError(msg);
+      throw e;
+    }
   }, [enabled, permission, blocks]);
+
+  const retrySync = useCallback(async () => {
+    try { await sync(); } catch {}
+  }, [sync]);
 
   // Register/unregister SW based on enabled flag.
   useEffect(() => {
