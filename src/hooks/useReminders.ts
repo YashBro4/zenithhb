@@ -141,7 +141,7 @@ export const useReminders = () => {
   }, [enabled, permission, sync]);
 
   // Re-sync whenever blocks change.
-  useEffect(() => { sync(); }, [sync]);
+  useEffect(() => { sync().catch(() => {}); }, [sync]);
 
   const toggle = useCallback(async (next: boolean) => {
     if (!('Notification' in window)) {
