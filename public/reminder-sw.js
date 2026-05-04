@@ -28,6 +28,7 @@ self.addEventListener('message', (event) => {
           icon: '/favicon.ico',
           badge: '/favicon.ico',
           silent: false,
+          requireInteraction: true,
         });
       }, delay);
       timers.push(id);

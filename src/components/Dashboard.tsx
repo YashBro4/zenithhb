@@ -12,6 +12,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import GreatnessHero from '@/components/GreatnessHero';
 import Timetable from '@/components/Timetable';
 import NotificationPrompt from '@/components/NotificationPrompt';
+import NotificationStatus from '@/components/NotificationStatus';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -124,6 +125,7 @@ const Dashboard = () => {
             <span className="font-serif font-semibold text-foreground">Zenith</span>
           </div>
           <div className="flex items-center gap-1">
+            <NotificationStatus />
             <ThemeToggle />
             <Button
               variant="ghost"
