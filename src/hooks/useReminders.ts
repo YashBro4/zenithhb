@@ -158,14 +158,16 @@ export const useReminders = () => {
       dayBlocks.forEach(b => {
         const fire = new Date(day);
         fire.setHours(0, 0, 0, 0);
-        fire.setMinutes(b.start_minute - LEAD_MINUTES);
+        fire.setMinutes(b.start_minute - leadMinutes);
         const ts = fire.getTime();
         if (ts > now.getTime() && ts < now.getTime() + 24 * 60 * 60 * 1000) {
+          const lead = leadMinutes > 0 ? ` (in ${leadMinutes} min)` : '';
           items.push({
             fireAt: ts,
-            title: `Time for: ${b.title}`,
-            body: `It is now time for ${b.title} · ${formatBlockTime(b.start_minute)}`,
+            title: `Time for ${b.title}!${lead}`,
+            body: `${formatBlockTime(b.start_minute)} – ${formatBlockTime(b.end_minute)}`,
             tag: `zenith-${b.id}-${ts}`,
+            silent: sound === 'silent',
           });
         }
       });
