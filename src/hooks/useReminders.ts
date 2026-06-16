@@ -250,6 +250,10 @@ export const useReminders = () => {
     toggle,
     lastSyncError,
     retrySync,
+    leadMinutes,
+    setLeadMinutes,
+    sound,
+    setSound,
     supported: typeof window !== 'undefined' && 'Notification' in window,
     previewBlocked: !canUseSW() && typeof window !== 'undefined' && 'Notification' in window,
   };
