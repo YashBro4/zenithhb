@@ -1,70 +1,112 @@
 // Zenith Smart Reminders — background scheduler.
-// Two delivery paths:
-//   1) Notification Triggers API (TimestampTrigger) when supported — OS-level,
-//      survives the tab being closed.
-//   2) setTimeout fallback while the SW is alive (within 24h window).
+//
+// Delivery paths (in order of reliability when the tab is closed):
+//   1) Notification Triggers API (TimestampTrigger). OS-level, survives tab
+//      close and browser restart in supporting Chromium builds.
+//   2) setTimeout fallback while this Service Worker is alive.
+//
+// The full schedule is persisted to IndexedDB so the SW can re-hydrate and
+// re-schedule on activate / wake-up without needing the page to be open.
+
+const TAG_PREFIX = 'zenith-';
+const DB_NAME = 'zenith-reminders';
+const STORE = 'schedule';
+const KEY = 'items';
 
 self.addEventListener('install', (e) => e.waitUntil(self.skipWaiting()));
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (e) =>
+  e.waitUntil((async () => {
+    await self.clients.claim();
+    // Re-hydrate stored schedule so triggers exist after SW restart.
+    const items = await readItems().catch(() => []);
+    if (items && items.length) await scheduleAll(items);
+  })()),
+);
 
-let timers = [];
-const TAG_PREFIX = 'zenith-';
-
-const clearTimers = () => {
-  timers.forEach((id) => clearTimeout(id));
-  timers = [];
+// --- IndexedDB helpers ---------------------------------------------------
+const openDb = () => new Promise((resolve, reject) => {
+  const req = indexedDB.open(DB_NAME, 1);
+  req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+  req.onsuccess = () => resolve(req.result);
+  req.onerror = () => reject(req.error);
+});
+const writeItems = async (items) => {
+  const db = await openDb();
+  await new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(items, KEY);
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+  });
+  db.close();
+};
+const readItems = async () => {
+  const db = await openDb();
+  const items = await new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const r = tx.objectStore(STORE).get(KEY);
+    r.onsuccess = () => res(r.result || []);
+    r.onerror = () => rej(r.error);
+  });
+  db.close();
+  return items;
 };
 
-// Cancel any previously-scheduled trigger notifications so edits/deletes
-// don't leave stale OS-level reminders behind.
+// --- Scheduling ----------------------------------------------------------
+let timers = [];
+const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+
 const clearScheduledTriggers = async () => {
   try {
     const all = await self.registration.getNotifications({ includeTriggered: false });
-    all.forEach((n) => {
-      if (n.tag && n.tag.startsWith(TAG_PREFIX)) n.close();
-    });
-  } catch (e) {
-    // getNotifications with includeTriggered isn't universal; ignore.
-  }
+    all.forEach((n) => { if (n.tag && n.tag.startsWith(TAG_PREFIX)) n.close(); });
+  } catch {}
 };
 
 const supportsTrigger = () => 'TimestampTrigger' in self;
 
+const scheduleAll = async (items) => {
+  clearTimers();
+  await clearScheduledTriggers();
+  const now = Date.now();
+  for (const it of items) {
+    const delay = it.fireAt - now;
+    if (delay <= 0 || delay > 24 * 60 * 60 * 1000) continue;
+    const opts = {
+      body: it.body || '',
+      tag: it.tag || `${TAG_PREFIX}${it.fireAt}`,
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      silent: !!it.silent,
+      requireInteraction: true,
+      renotify: true,
+      data: { url: '/', fireAt: it.fireAt },
+    };
+    if (supportsTrigger()) {
+      try {
+        // eslint-disable-next-line no-undef
+        opts.showTrigger = new TimestampTrigger(it.fireAt);
+        await self.registration.showNotification(it.title || 'Upcoming block', opts);
+        continue;
+      } catch {
+        // fall through
+      }
+    }
+    const id = setTimeout(() => {
+      self.registration.showNotification(it.title || 'Upcoming block', opts);
+    }, delay);
+    timers.push(id);
+  }
+};
+
+// --- Messaging from the page --------------------------------------------
 self.addEventListener('message', (event) => {
   const data = event.data || {};
   if (data.type === 'SCHEDULE') {
-    clearTimers();
+    const items = Array.isArray(data.items) ? data.items : [];
     event.waitUntil((async () => {
-      await clearScheduledTriggers();
-      const items = Array.isArray(data.items) ? data.items : [];
-      const now = Date.now();
-      for (const it of items) {
-        const delay = it.fireAt - now;
-        if (delay <= 0 || delay > 24 * 60 * 60 * 1000) continue;
-        const opts = {
-          body: it.body || '',
-          tag: it.tag || `${TAG_PREFIX}${it.fireAt}`,
-          icon: '/favicon.ico',
-          badge: '/favicon.ico',
-          silent: !!it.silent,
-          requireInteraction: true,
-          data: { url: '/' },
-        };
-        if (supportsTrigger()) {
-          try {
-            // eslint-disable-next-line no-undef
-            opts.showTrigger = new TimestampTrigger(it.fireAt);
-            await self.registration.showNotification(it.title || 'Upcoming block', opts);
-            continue;
-          } catch (err) {
-            // fall through to setTimeout
-          }
-        }
-        const id = setTimeout(() => {
-          self.registration.showNotification(it.title || 'Upcoming block', opts);
-        }, delay);
-        timers.push(id);
-      }
+      await writeItems(items).catch(() => {});
+      await scheduleAll(items);
     })());
   }
   if (data.type === 'NOTIFY_NOW') {
@@ -77,8 +119,21 @@ self.addEventListener('message', (event) => {
     });
   }
   if (data.type === 'CLEAR') {
-    clearTimers();
-    event.waitUntil(clearScheduledTriggers());
+    event.waitUntil((async () => {
+      clearTimers();
+      await writeItems([]).catch(() => {});
+      await clearScheduledTriggers();
+    })());
+  }
+});
+
+// Periodic Background Sync (Chromium, when granted) — re-hydrates triggers.
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'zenith-reschedule') {
+    event.waitUntil((async () => {
+      const items = await readItems().catch(() => []);
+      if (items.length) await scheduleAll(items);
+    })());
   }
 });
 
@@ -89,6 +144,6 @@ self.addEventListener('notificationclick', (event) => {
       const w = wins.find((c) => 'focus' in c);
       if (w) return w.focus();
       return self.clients.openWindow('/');
-    })
+    }),
   );
 });
