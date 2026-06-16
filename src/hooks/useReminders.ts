@@ -150,6 +150,7 @@ export const useReminders = () => {
             title: "Today's Zenith schedule",
             body: `${dayBlocks.length} block${dayBlocks.length === 1 ? '' : 's'} today · ${preview}`,
             tag: `zenith-daily-${key}`,
+            silent: sound === 'silent',
           });
           try { localStorage.setItem(DIGEST_KEY, key); } catch {}
         }
