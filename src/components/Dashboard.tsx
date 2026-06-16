@@ -127,6 +127,7 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-1">
             <NotificationStatus />
+            <NotificationSettings />
             <ThemeToggle />
             <Button
               variant="ghost"
