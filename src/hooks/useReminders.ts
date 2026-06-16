@@ -123,7 +123,7 @@ export const useReminders = () => {
       if (!worker) throw new Error('Service worker not active');
 
     const now = new Date();
-    const items: Array<{ fireAt: number; title: string; body: string; tag: string }> = [];
+    const items: Array<{ fireAt: number; title: string; body: string; tag: string; silent?: boolean }> = [];
     // Walk the next 24h, day by day.
     for (let d = 0; d < 2; d++) {
       const day = new Date(now);
