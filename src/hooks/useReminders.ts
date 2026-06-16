@@ -196,6 +196,17 @@ export const useReminders = () => {
         .then(async (reg) => {
           await navigator.serviceWorker.ready;
           await sync();
+          // Best-effort: request periodic background sync so the SW can
+          // re-hydrate triggers from IndexedDB without the page being open.
+          try {
+            const anyReg = reg as any;
+            if (anyReg.periodicSync && (navigator as any).permissions) {
+              const status = await (navigator as any).permissions.query({ name: 'periodic-background-sync' });
+              if (status.state === 'granted') {
+                await anyReg.periodicSync.register('zenith-reschedule', { minInterval: 12 * 60 * 60 * 1000 });
+              }
+            }
+          } catch {}
           if (reg.active) {
             reg.active.postMessage({
               type: 'NOTIFY_NOW',
@@ -211,6 +222,20 @@ export const useReminders = () => {
 
   // Re-sync whenever blocks change.
   useEffect(() => { sync().catch(() => {}); }, [sync]);
+
+  // Re-sync when the tab regains focus — keeps the rolling 24h window fresh
+  // and re-arms the setTimeout fallback after the tab was backgrounded.
+  useEffect(() => {
+    if (!canUseSW()) return;
+    const onVis = () => { if (document.visibilityState === 'visible') sync().catch(() => {}); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onVis);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onVis);
+    };
+  }, [sync]);
+
 
   const toggle = useCallback(async (next: boolean) => {
     if (!('Notification' in window)) {
