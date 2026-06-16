@@ -92,6 +92,27 @@ export const useReminders = () => {
   });
   const [registering, setRegistering] = useState(false);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [leadMinutes, setLeadMinutesState] = useState<ReminderLead>(() => {
+    try {
+      const raw = Number(localStorage.getItem(LEAD_KEY));
+      return (REMINDER_LEADS as number[]).includes(raw) ? (raw as ReminderLead) : 0;
+    } catch { return 0; }
+  });
+  const [sound, setSoundState] = useState<ReminderSound>(() => {
+    try {
+      const raw = (localStorage.getItem(SOUND_KEY) as ReminderSound) || 'chime';
+      return REMINDER_SOUNDS.some(s => s.id === raw) ? raw : 'chime';
+    } catch { return 'chime'; }
+  });
+
+  const setLeadMinutes = useCallback((m: ReminderLead) => {
+    setLeadMinutesState(m);
+    try { localStorage.setItem(LEAD_KEY, String(m)); } catch {}
+  }, []);
+  const setSound = useCallback((s: ReminderSound) => {
+    setSoundState(s);
+    try { localStorage.setItem(SOUND_KEY, s); } catch {}
+  }, []);
 
   // Schedule SW notifications for the next 24h.
   const sync = useCallback(async () => {
