@@ -3,9 +3,54 @@ import { useTimeBlocks } from './useTimeBlocks';
 
 const STORAGE_KEY = 'zenith_reminders_enabled';
 const DIGEST_KEY = 'zenith_schedule_digest_date';
-// Fire AT the start of the event (per spec). Set to a positive number to lead.
-const LEAD_MINUTES = 0;
+const LEAD_KEY = 'zenith_reminders_lead';
+const SOUND_KEY = 'zenith_reminders_sound';
 const DIGEST_HOUR = 8;
+
+export type ReminderLead = 0 | 5 | 10;
+export type ReminderSound = 'chime' | 'bell' | 'beep' | 'silent';
+export const REMINDER_LEADS: ReminderLead[] = [0, 5, 10];
+export const REMINDER_SOUNDS: { id: ReminderSound; label: string }[] = [
+  { id: 'chime', label: 'Minimal Chime' },
+  { id: 'bell', label: 'Focus Bell' },
+  { id: 'beep', label: 'Digital Beep' },
+  { id: 'silent', label: 'Silent' },
+];
+
+// Play a short procedural tone for in-app "Test Sound" previews. Browser
+// notifications themselves use the OS default sound; the `silent` flag suppresses it.
+export const playReminderSound = (sound: ReminderSound) => {
+  if (sound === 'silent' || typeof window === 'undefined') return;
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx: AudioContext = new Ctx();
+    const now = ctx.currentTime;
+    const presets: Record<Exclude<ReminderSound, 'silent'>, number[]> = {
+      chime: [880, 1320],
+      bell:  [660, 880, 660],
+      beep:  [1000, 1000],
+    };
+    const notes = presets[sound];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = sound === 'beep' ? 'square' : 'sine';
+      osc.frequency.value = freq;
+      const start = now + i * 0.16;
+      const dur = sound === 'bell' ? 0.18 : 0.14;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + dur + 0.02);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 1200);
+  } catch {
+    // Audio unavailable — ignore.
+  }
+};
 
 // Skip SW in Lovable preview iframe — service workers in the editor preview
 // pollute caching and don't fire notifications anyway.
@@ -47,6 +92,27 @@ export const useReminders = () => {
   });
   const [registering, setRegistering] = useState(false);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [leadMinutes, setLeadMinutesState] = useState<ReminderLead>(() => {
+    try {
+      const raw = Number(localStorage.getItem(LEAD_KEY));
+      return (REMINDER_LEADS as number[]).includes(raw) ? (raw as ReminderLead) : 0;
+    } catch { return 0; }
+  });
+  const [sound, setSoundState] = useState<ReminderSound>(() => {
+    try {
+      const raw = (localStorage.getItem(SOUND_KEY) as ReminderSound) || 'chime';
+      return REMINDER_SOUNDS.some(s => s.id === raw) ? raw : 'chime';
+    } catch { return 'chime'; }
+  });
+
+  const setLeadMinutes = useCallback((m: ReminderLead) => {
+    setLeadMinutesState(m);
+    try { localStorage.setItem(LEAD_KEY, String(m)); } catch {}
+  }, []);
+  const setSound = useCallback((s: ReminderSound) => {
+    setSoundState(s);
+    try { localStorage.setItem(SOUND_KEY, s); } catch {}
+  }, []);
 
   // Schedule SW notifications for the next 24h.
   const sync = useCallback(async () => {
@@ -57,7 +123,7 @@ export const useReminders = () => {
       if (!worker) throw new Error('Service worker not active');
 
     const now = new Date();
-    const items: Array<{ fireAt: number; title: string; body: string; tag: string }> = [];
+    const items: Array<{ fireAt: number; title: string; body: string; tag: string; silent?: boolean }> = [];
     // Walk the next 24h, day by day.
     for (let d = 0; d < 2; d++) {
       const day = new Date(now);
@@ -84,6 +150,7 @@ export const useReminders = () => {
             title: "Today's Zenith schedule",
             body: `${dayBlocks.length} block${dayBlocks.length === 1 ? '' : 's'} today · ${preview}`,
             tag: `zenith-daily-${key}`,
+            silent: sound === 'silent',
           });
           try { localStorage.setItem(DIGEST_KEY, key); } catch {}
         }
@@ -92,14 +159,16 @@ export const useReminders = () => {
       dayBlocks.forEach(b => {
         const fire = new Date(day);
         fire.setHours(0, 0, 0, 0);
-        fire.setMinutes(b.start_minute - LEAD_MINUTES);
+        fire.setMinutes(b.start_minute - leadMinutes);
         const ts = fire.getTime();
         if (ts > now.getTime() && ts < now.getTime() + 24 * 60 * 60 * 1000) {
+          const lead = leadMinutes > 0 ? ` (in ${leadMinutes} min)` : '';
           items.push({
             fireAt: ts,
-            title: `Time for: ${b.title}`,
-            body: `It is now time for ${b.title} · ${formatBlockTime(b.start_minute)}`,
+            title: `Time for ${b.title}!${lead}`,
+            body: `${formatBlockTime(b.start_minute)} – ${formatBlockTime(b.end_minute)}`,
             tag: `zenith-${b.id}-${ts}`,
+            silent: sound === 'silent',
           });
         }
       });
@@ -112,7 +181,7 @@ export const useReminders = () => {
       setLastSyncError(msg);
       throw e;
     }
-  }, [enabled, permission, blocks]);
+  }, [enabled, permission, blocks, leadMinutes, sound]);
 
   const retrySync = useCallback(async () => {
     try { await sync(); } catch {}
@@ -181,6 +250,10 @@ export const useReminders = () => {
     toggle,
     lastSyncError,
     retrySync,
+    leadMinutes,
+    setLeadMinutes,
+    sound,
+    setSound,
     supported: typeof window !== 'undefined' && 'Notification' in window,
     previewBlocked: !canUseSW() && typeof window !== 'undefined' && 'Notification' in window,
   };

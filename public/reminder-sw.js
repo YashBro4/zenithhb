@@ -46,7 +46,7 @@ self.addEventListener('message', (event) => {
           tag: it.tag || `${TAG_PREFIX}${it.fireAt}`,
           icon: '/favicon.ico',
           badge: '/favicon.ico',
-          silent: false,
+          silent: !!it.silent,
           requireInteraction: true,
           data: { url: '/' },
         };
