@@ -3,9 +3,54 @@ import { useTimeBlocks } from './useTimeBlocks';
 
 const STORAGE_KEY = 'zenith_reminders_enabled';
 const DIGEST_KEY = 'zenith_schedule_digest_date';
-// Fire AT the start of the event (per spec). Set to a positive number to lead.
-const LEAD_MINUTES = 0;
+const LEAD_KEY = 'zenith_reminders_lead';
+const SOUND_KEY = 'zenith_reminders_sound';
 const DIGEST_HOUR = 8;
+
+export type ReminderLead = 0 | 5 | 10;
+export type ReminderSound = 'chime' | 'bell' | 'beep' | 'silent';
+export const REMINDER_LEADS: ReminderLead[] = [0, 5, 10];
+export const REMINDER_SOUNDS: { id: ReminderSound; label: string }[] = [
+  { id: 'chime', label: 'Minimal Chime' },
+  { id: 'bell', label: 'Focus Bell' },
+  { id: 'beep', label: 'Digital Beep' },
+  { id: 'silent', label: 'Silent' },
+];
+
+// Play a short procedural tone for in-app "Test Sound" previews. Browser
+// notifications themselves use the OS default sound; the `silent` flag suppresses it.
+export const playReminderSound = (sound: ReminderSound) => {
+  if (sound === 'silent' || typeof window === 'undefined') return;
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx: AudioContext = new Ctx();
+    const now = ctx.currentTime;
+    const presets: Record<Exclude<ReminderSound, 'silent'>, number[]> = {
+      chime: [880, 1320],
+      bell:  [660, 880, 660],
+      beep:  [1000, 1000],
+    };
+    const notes = presets[sound];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = sound === 'beep' ? 'square' : 'sine';
+      osc.frequency.value = freq;
+      const start = now + i * 0.16;
+      const dur = sound === 'bell' ? 0.18 : 0.14;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + dur + 0.02);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 1200);
+  } catch {
+    // Audio unavailable — ignore.
+  }
+};
 
 // Skip SW in Lovable preview iframe — service workers in the editor preview
 // pollute caching and don't fire notifications anyway.
