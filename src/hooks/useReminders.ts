@@ -181,7 +181,7 @@ export const useReminders = () => {
       setLastSyncError(msg);
       throw e;
     }
-  }, [enabled, permission, blocks]);
+  }, [enabled, permission, blocks, leadMinutes, sound]);
 
   const retrySync = useCallback(async () => {
     try { await sync(); } catch {}
