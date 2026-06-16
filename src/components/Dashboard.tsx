@@ -13,6 +13,7 @@ import GreatnessHero from '@/components/GreatnessHero';
 import Timetable from '@/components/Timetable';
 import NotificationPrompt from '@/components/NotificationPrompt';
 import NotificationStatus from '@/components/NotificationStatus';
+import NotificationSettings from '@/components/NotificationSettings';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
