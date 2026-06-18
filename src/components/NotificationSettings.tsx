@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Settings2, Bell, BellOff, Play, Volume2 } from 'lucide-react';
+import { Settings2, Bell, BellOff, Play, Volume2, Download } from 'lucide-react';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
