@@ -19,6 +19,7 @@ const leadLabel = (m: ReminderLead) =>
 
 const NotificationSettings = () => {
   const r = useReminders();
+  const install = useInstallPrompt();
   const [open, setOpen] = useState(false);
 
   if (!r.supported) return null;
