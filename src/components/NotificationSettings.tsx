@@ -158,6 +158,22 @@ const NotificationSettings = () => {
               </Button>
             </div>
           )}
+
+          {install.canInstall && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-9 text-sm"
+              onClick={() => install.promptInstall()}
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" /> Install Desktop App
+            </Button>
+          )}
+          {install.installed && (
+            <p className="text-[10px] text-muted-foreground text-center">
+              Installed as a desktop app.
+            </p>
+          )}
         </div>
       </PopoverContent>
     </Popover>
