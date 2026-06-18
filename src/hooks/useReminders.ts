@@ -228,14 +228,14 @@ export const useReminders = () => {
     };
   }, [sync]);
 
-  // Foreground live-tick: every 30s, compare wall-clock to today's blocks and
-  // fire a real Notification the moment a block's start time is reached.
-  // This guarantees alerts even when the SW / TimestampTrigger path is
-  // unavailable (Lovable preview, Safari, Firefox, etc.).
+  // Foreground live-tick: aligned to top of each minute. Compares current
+  // HH:MM against today's timetable and fires a Notification + chime in the
+  // same execution block when a match is found.
   useEffect(() => {
     if (!enabled || permission !== 'granted') return;
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     const fired = new Set<string>();
+
     const tick = () => {
       const now = new Date();
       const dow = now.getDay();
@@ -243,31 +243,39 @@ export const useReminders = () => {
       const todays = blocks.filter(b => b.day_of_week === dow);
       for (const b of todays) {
         const target = b.start_minute - leadMinutes;
+        if (nowMin !== target) continue;
         const key = `${now.toDateString()}-${b.id}-${target}`;
         if (fired.has(key)) continue;
-        // Fire when within the current minute window (and not in the past >60s).
-        if (nowMin === target || (nowMin === target + 1 && now.getSeconds() < 30)) {
-          fired.add(key);
-          console.log('Triggering notification for:', b.title);
-          try {
-            const lead = leadMinutes > 0 ? ` (in ${leadMinutes} min)` : '';
-            const n = new Notification(`Time for ${b.title}!${lead}`, {
-              body: `${formatBlockTime(b.start_minute)} – ${formatBlockTime(b.end_minute)}`,
-              tag: `zenith-live-${b.id}-${target}`,
-              requireInteraction: true,
-              silent: sound === 'silent',
-            });
-            n.onclick = () => { window.focus(); n.close(); };
-          } catch (e) {
-            console.error('[Reminders] live notify failed', e);
-          }
+        fired.add(key);
+        console.log('Triggering notification for:', b.title);
+        try {
+          const lead = leadMinutes > 0 ? ` (in ${leadMinutes} min)` : '';
+          const n = new Notification(`Time for ${b.title}!${lead}`, {
+            body: `Your scheduled block from ${formatBlockTime(b.start_minute)} to ${formatBlockTime(b.end_minute)} has started.`,
+            tag: `zenith-live-${b.id}-${target}`,
+            icon: '/icon-192.png',
+            requireInteraction: true,
+            silent: sound === 'silent',
+          });
+          n.onclick = () => { window.focus(); n.close(); };
           if (sound !== 'silent') playReminderSound(sound);
+        } catch (e) {
+          console.error('[Reminders] live notify failed', e);
         }
       }
     };
+
     tick();
-    const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
+    const msToNextMinute = 60_000 - (Date.now() % 60_000);
+    let intervalId: number | undefined;
+    const timeoutId = window.setTimeout(() => {
+      tick();
+      intervalId = window.setInterval(tick, 60_000);
+    }, msToNextMinute);
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+    };
   }, [enabled, permission, blocks, leadMinutes, sound]);
 
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Settings2, Bell, BellOff, Play, Volume2 } from 'lucide-react';
+import { Settings2, Bell, BellOff, Play, Volume2, Download } from 'lucide-react';
+import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -18,6 +19,7 @@ const leadLabel = (m: ReminderLead) =>
 
 const NotificationSettings = () => {
   const r = useReminders();
+  const install = useInstallPrompt();
   const [open, setOpen] = useState(false);
 
   if (!r.supported) return null;
@@ -155,6 +157,22 @@ const NotificationSettings = () => {
                 Retry
               </Button>
             </div>
+          )}
+
+          {install.canInstall && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-9 text-sm"
+              onClick={() => install.promptInstall()}
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" /> Install Desktop App
+            </Button>
+          )}
+          {install.installed && (
+            <p className="text-[10px] text-muted-foreground text-center">
+              Installed as a desktop app.
+            </p>
           )}
         </div>
       </PopoverContent>
