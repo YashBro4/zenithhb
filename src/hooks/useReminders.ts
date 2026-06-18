@@ -207,14 +207,6 @@ export const useReminders = () => {
               }
             }
           } catch {}
-          if (reg.active) {
-            reg.active.postMessage({
-              type: 'NOTIFY_NOW',
-              title: 'Zenith notifications are on',
-              body: 'Your daily schedule and upcoming blocks will appear here.',
-              tag: 'zenith-notifications-enabled',
-            });
-          }
         })
         .catch((error) => console.error('[Reminders] registration failed', error));
     }
