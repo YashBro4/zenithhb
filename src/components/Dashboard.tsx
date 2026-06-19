@@ -14,6 +14,7 @@ import Timetable from '@/components/Timetable';
 import NotificationPrompt from '@/components/NotificationPrompt';
 import NotificationStatus from '@/components/NotificationStatus';
 import NotificationSettings from '@/components/NotificationSettings';
+import { useOneSignalSchedule } from '@/hooks/useOneSignalSchedule';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ type View = 'habits' | 'todos' | 'combined' | 'stats' | 'timetable' | 'profile';
 
 const Dashboard = () => {
   const { user, isGuest, signOut, exitGuestMode } = useAuth();
+  useOneSignalSchedule();
   const [view, setView] = useState<View>('combined');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const today = format(new Date(), 'yyyy-MM-dd');
