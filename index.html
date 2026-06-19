@@ -7,8 +7,7 @@
     <title>Zenith -- your personal habit tracker</title>
     <meta name="description" content="Discover yourself">
     <meta name="author" content="Lovable" />
-    <!-- <link rel="manifest" href="/manifest.json" /> -->
-    <link rel="manifest" href="https://progressier.app/0Ws0rIXM6Co1ByEGYilr/progressier.json" />
+    <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#6B9080" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -31,7 +30,6 @@
   <meta name="twitter:title" content="Zenith -- your personal habit tracker">
   <meta property="og:description" content="Discover yourself">
   <meta name="twitter:description" content="Discover yourself">
-  <script defer src="https://progressier.app/0Ws0rIXM6Co1ByEGYilr/script.js"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -41,6 +39,18 @@
         allowLocalhostAsSecureOrigin: true,
         notifyButton: { enable: true },
       });
+      OneSignal.User.PushSubscription.addEventListener('change', (e) => {
+        const id = e.current?.id;
+        if (id) {
+          try { localStorage.setItem('onesignal_subscription_id', id); } catch {}
+          window.dispatchEvent(new CustomEvent('onesignal:subscription', { detail: { id } }));
+        }
+      });
+      const existing = OneSignal.User.PushSubscription.id;
+      if (existing) {
+        try { localStorage.setItem('onesignal_subscription_id', existing); } catch {}
+        window.dispatchEvent(new CustomEvent('onesignal:subscription', { detail: { id: existing } }));
+      }
     });
   </script>
 </head>
