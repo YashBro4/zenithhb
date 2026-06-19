@@ -1,1 +1,4 @@
 project_id = "pifbiltkdnkrvthzauzc"
+
+[functions.schedule-onesignal]
+verify_jwt = false
