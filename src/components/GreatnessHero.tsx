@@ -31,14 +31,32 @@ const GreatnessHero = () => {
   const spotX = useMotionValue(50);
   const spotY = useMotionValue(50);
 
-  // Refresh at midnight
+  // Refresh at the next local midnight, then continue scheduling future days.
   useEffect(() => {
-    const now = new Date();
-    const next = new Date(now);
-    next.setHours(24, 0, 5, 0);
-    const t = setTimeout(() => setFigure(getDailyFigure()), next.getTime() - now.getTime());
-    return () => clearTimeout(t);
-  }, [figure]);
+    let midnightTimer: number | undefined;
+
+    const refreshForToday = () => {
+      setFigure(getDailyFigure());
+      setImageError(false);
+      setImageKey((key) => key + 1);
+    };
+
+    const scheduleNextRefresh = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 25);
+      midnightTimer = window.setTimeout(() => {
+        refreshForToday();
+        scheduleNextRefresh();
+      }, Math.max(1000, nextMidnight.getTime() - now.getTime()));
+    };
+
+    scheduleNextRefresh();
+
+    return () => {
+      if (midnightTimer !== undefined) window.clearTimeout(midnightTimer);
+    };
+  }, []);
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = containerRef.current?.getBoundingClientRect();
