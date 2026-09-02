@@ -179,7 +179,7 @@ const quoteSeeds: QuoteSeed[] = [
   { name: 'Maya Angelou', role: 'Writer & poet', pillar: 'Spirit', quote: 'Nothing can dim the light which shines from within.' },
   { name: 'Cristiano Ronaldo', role: 'Champion & footballer', pillar: 'Health', quote: 'Your love makes me strong, your hate makes me unstoppable.' },
   { name: 'Bob Ross', role: 'Painter & teacher', pillar: 'Craft', quote: 'Talent is a pursued interest. Anything that you’re willing to practice, you can do.' },
-  { name: 'Carl Sagan', role: 'Astronomer & educator', pillar: 'Logic', quote: 'Somewhere, something incredible is waiting to be known.' },
+  { name: 'Carl Sagan', role: 'Astronomer & educator', pillar: 'Logic', quote: 'For me, it is far better to grasp the universe as it really is than to persist in delusion.' },
   { name: 'Abraham Lincoln', role: 'President & leader', pillar: 'Spirit', quote: 'The best way to predict your future is to create it.' },
   { name: 'David Goggins', role: 'Athlete & author', pillar: 'Health', quote: 'We should not judge people by their peak of excellence; but by the distance they have traveled from the point where they started.' },
   { name: 'Pablo Picasso', role: 'Artist & innovator', pillar: 'Craft', quote: 'Action is the foundational key to all success.' },

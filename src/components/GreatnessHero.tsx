@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Quote, Sparkles, RefreshCw } from 'lucide-react';
-import { getDailyFigure } from '@/data/greatness';
+import { getDailyFigure, getMsUntilNextReset } from '@/data/greatness';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
