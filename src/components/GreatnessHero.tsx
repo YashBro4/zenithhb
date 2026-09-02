@@ -31,9 +31,9 @@ const GreatnessHero = () => {
   const spotX = useMotionValue(50);
   const spotY = useMotionValue(50);
 
-  // Refresh at the next local midnight, then continue scheduling future days.
+  // Refresh at the next 5:00 AM local reset, then keep scheduling future days.
   useEffect(() => {
-    let midnightTimer: number | undefined;
+    let resetTimer: number | undefined;
 
     const refreshForToday = () => {
       setFigure(getDailyFigure());
@@ -42,19 +42,16 @@ const GreatnessHero = () => {
     };
 
     const scheduleNextRefresh = () => {
-      const now = new Date();
-      const nextMidnight = new Date(now);
-      nextMidnight.setHours(24, 0, 0, 25);
-      midnightTimer = window.setTimeout(() => {
+      resetTimer = window.setTimeout(() => {
         refreshForToday();
         scheduleNextRefresh();
-      }, Math.max(1000, nextMidnight.getTime() - now.getTime()));
+      }, getMsUntilNextReset());
     };
 
     scheduleNextRefresh();
 
     return () => {
-      if (midnightTimer !== undefined) window.clearTimeout(midnightTimer);
+      if (resetTimer !== undefined) window.clearTimeout(resetTimer);
     };
   }, []);
 
