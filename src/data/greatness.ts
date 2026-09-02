@@ -179,7 +179,7 @@ const quoteSeeds: QuoteSeed[] = [
   { name: 'Maya Angelou', role: 'Writer & poet', pillar: 'Spirit', quote: 'Nothing can dim the light which shines from within.' },
   { name: 'Cristiano Ronaldo', role: 'Champion & footballer', pillar: 'Health', quote: 'Your love makes me strong, your hate makes me unstoppable.' },
   { name: 'Bob Ross', role: 'Painter & teacher', pillar: 'Craft', quote: 'Talent is a pursued interest. Anything that you’re willing to practice, you can do.' },
-  { name: 'Carl Sagan', role: 'Astronomer & educator', pillar: 'Logic', quote: 'Somewhere, something incredible is waiting to be known.' },
+  { name: 'Carl Sagan', role: 'Astronomer & educator', pillar: 'Logic', quote: 'For me, it is far better to grasp the universe as it really is than to persist in delusion.' },
   { name: 'Abraham Lincoln', role: 'President & leader', pillar: 'Spirit', quote: 'The best way to predict your future is to create it.' },
   { name: 'David Goggins', role: 'Athlete & author', pillar: 'Health', quote: 'We should not judge people by their peak of excellence; but by the distance they have traveled from the point where they started.' },
   { name: 'Pablo Picasso', role: 'Artist & innovator', pillar: 'Craft', quote: 'Action is the foundational key to all success.' },
@@ -196,15 +196,47 @@ export const greatness: GreatnessFigure[] = quoteSeeds.map((seed) => ({
   image: portraitByPillar[seed.pillar],
 }));
 
-/**
- * Returns a deterministic figure from the device's local calendar date.
- * The catalog is intentionally much longer than a week, so the same quote
- * cannot recur until the full local catalog has been used.
- */
-export const getDailyFigure = (date = new Date()): GreatnessFigure => {
-  const localDateIndex = Math.floor(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / (1000 * 60 * 60 * 24),
-  );
+/** Hour of the day (local time) at which the daily quote rolls over. */
+export const DAILY_RESET_HOUR = 5;
 
-  return greatness[((localDateIndex % greatness.length) + greatness.length) % greatness.length];
+/**
+ * Returns the effective "quote date": the calendar day this moment belongs
+ * to once the 5:00 AM reset is applied. Before 5 AM, the previous day's
+ * quote is still shown; at or after 5 AM, today's quote takes over.
+ */
+export const getQuoteCycleDate = (now = new Date()): Date => {
+  const cycle = new Date(now);
+  if (cycle.getHours() < DAILY_RESET_HOUR) {
+    cycle.setDate(cycle.getDate() - 1);
+  }
+  cycle.setHours(0, 0, 0, 0);
+  return cycle;
+};
+
+/**
+ * Milliseconds from `now` until the next 5:00 AM local reset — the moment
+ * the daily quote should switch over.
+ */
+export const getMsUntilNextReset = (now = new Date()): number => {
+  const next = new Date(now);
+  next.setHours(DAILY_RESET_HOUR, 0, 0, 250);
+  if (next.getTime() <= now.getTime()) {
+    next.setDate(next.getDate() + 1);
+  }
+  return Math.max(1000, next.getTime() - now.getTime());
+};
+
+/**
+ * Returns a deterministic figure for the current 5:00 AM cycle.
+ * The index is seeded by the cycle's local calendar date (year + day-of-year),
+ * so the quote is identical for every reload within the same 24-hour window,
+ * changes exactly once per day at 5 AM, and never loops on a 7-day cycle.
+ */
+export const getDailyFigure = (now = new Date()): GreatnessFigure => {
+  const cycle = getQuoteCycleDate(now);
+  const startOfYear = new Date(cycle.getFullYear(), 0, 1);
+  const dayOfYear = Math.floor((cycle.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const seed = cycle.getFullYear() * 1000 + dayOfYear;
+
+  return greatness[((seed % greatness.length) + greatness.length) % greatness.length];
 };
