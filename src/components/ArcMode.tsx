@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { addDays, addMonths, differenceInCalendarDays, format, isValid, parseISO, subDays } from 'date-fns';
+import { addDays, addMonths, differenceInCalendarDays, format, subDays } from 'date-fns';
 import { Check, ChevronDown, Flame, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,8 +48,11 @@ const localDate = (key: string) => {
   const [year, month, day] = key.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
-const isDateKey = (value: unknown): value is string =>
-  typeof value === 'string' && DAY_PATTERN.test(value) && isValid(parseISO(value));
+const isDateKey = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !DAY_PATTERN.test(value)) return false;
+  const parsed = localDate(value);
+  return Number.isFinite(parsed.getTime()) && dateKey(parsed) === value;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -76,7 +79,7 @@ function defaultArc(): ArcState {
     startDate: dateKey(new Date()),
     durationMode: 'days',
     duration: 90,
-    rules: [],
+    rules: Array.from({ length: 3 }, () => ({ id: crypto.randomUUID(), text: '' })),
     pledgedDates: [],
     habits: [],
     tasks: [],
@@ -95,12 +98,14 @@ function loadArc(): ArcState {
     const duration = typeof value.duration === 'number' && Number.isFinite(value.duration)
       ? Math.min(maximum, Math.max(1, Math.round(value.duration)))
       : base.duration;
+    const rules = Array.isArray(value.rules) ? value.rules.filter(isRule).slice(0, 7) : base.rules;
+    while (rules.length < 3) rules.push({ id: crypto.randomUUID(), text: '' });
     return {
       title: typeof value.title === 'string' ? value.title : base.title,
       startDate: isDateKey(value.startDate) ? value.startDate : base.startDate,
       durationMode,
       duration,
-      rules: Array.isArray(value.rules) ? value.rules.filter(isRule).slice(0, 7) : [],
+      rules,
       pledgedDates: Array.isArray(value.pledgedDates) ? value.pledgedDates.filter(isDateKey) : [],
       habits: Array.isArray(value.habits) ? value.habits.filter(isHabit) : [],
       tasks: Array.isArray(value.tasks) ? value.tasks.filter(isTask) : [],
@@ -120,7 +125,6 @@ const priorityStyle: Record<Priority, string> = {
 const ArcMode = () => {
   const [arc, setArc] = useState<ArcState>(loadArc);
   const [now, setNow] = useState(() => new Date());
-  const [newRule, setNewRule] = useState('');
   const [newHabit, setNewHabit] = useState('');
   const [newTask, setNewTask] = useState('');
   const [taskPriority, setTaskPriority] = useState<Priority>('High');
@@ -224,7 +228,6 @@ const ArcMode = () => {
   const addRule = () => {
     if (arc.rules.length >= 7) return;
     updateArc(current => ({ ...current, rules: [...current.rules, { id: crypto.randomUUID(), text: '' }] }));
-    setNewRule('');
   };
 
   const addHabit = () => {
@@ -289,6 +292,7 @@ const ArcMode = () => {
                 size="icon"
                 aria-label={`Remove rule ${index + 1}`}
                 onClick={() => updateArc(current => ({ ...current, rules: current.rules.filter(item => item.id !== rule.id) }))}
+                disabled={arc.rules.length <= 3}
                 className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
