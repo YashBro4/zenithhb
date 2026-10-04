@@ -79,7 +79,7 @@ function defaultArc(): ArcState {
     startDate: dateKey(new Date()),
     durationMode: 'days',
     duration: 90,
-    rules: [],
+    rules: Array.from({ length: 3 }, () => ({ id: crypto.randomUUID(), text: '' })),
     pledgedDates: [],
     habits: [],
     tasks: [],
@@ -98,12 +98,14 @@ function loadArc(): ArcState {
     const duration = typeof value.duration === 'number' && Number.isFinite(value.duration)
       ? Math.min(maximum, Math.max(1, Math.round(value.duration)))
       : base.duration;
+    const rules = Array.isArray(value.rules) ? value.rules.filter(isRule).slice(0, 7) : base.rules;
+    while (rules.length < 3) rules.push({ id: crypto.randomUUID(), text: '' });
     return {
       title: typeof value.title === 'string' ? value.title : base.title,
       startDate: isDateKey(value.startDate) ? value.startDate : base.startDate,
       durationMode,
       duration,
-      rules: Array.isArray(value.rules) ? value.rules.filter(isRule).slice(0, 7) : [],
+      rules,
       pledgedDates: Array.isArray(value.pledgedDates) ? value.pledgedDates.filter(isDateKey) : [],
       habits: Array.isArray(value.habits) ? value.habits.filter(isHabit) : [],
       tasks: Array.isArray(value.tasks) ? value.tasks.filter(isTask) : [],
@@ -290,6 +292,7 @@ const ArcMode = () => {
                 size="icon"
                 aria-label={`Remove rule ${index + 1}`}
                 onClick={() => updateArc(current => ({ ...current, rules: current.rules.filter(item => item.id !== rule.id) }))}
+                disabled={arc.rules.length <= 3}
                 className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
