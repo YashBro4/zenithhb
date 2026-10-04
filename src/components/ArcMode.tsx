@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { addDays, addMonths, differenceInCalendarDays, format, isValid, parseISO, subDays } from 'date-fns';
+import { addDays, addMonths, differenceInCalendarDays, format, subDays } from 'date-fns';
 import { Check, ChevronDown, Flame, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,8 +48,11 @@ const localDate = (key: string) => {
   const [year, month, day] = key.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
-const isDateKey = (value: unknown): value is string =>
-  typeof value === 'string' && DAY_PATTERN.test(value) && isValid(parseISO(value));
+const isDateKey = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !DAY_PATTERN.test(value)) return false;
+  const parsed = localDate(value);
+  return Number.isFinite(parsed.getTime()) && dateKey(parsed) === value;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -120,7 +123,6 @@ const priorityStyle: Record<Priority, string> = {
 const ArcMode = () => {
   const [arc, setArc] = useState<ArcState>(loadArc);
   const [now, setNow] = useState(() => new Date());
-  const [newRule, setNewRule] = useState('');
   const [newHabit, setNewHabit] = useState('');
   const [newTask, setNewTask] = useState('');
   const [taskPriority, setTaskPriority] = useState<Priority>('High');
@@ -224,7 +226,6 @@ const ArcMode = () => {
   const addRule = () => {
     if (arc.rules.length >= 7) return;
     updateArc(current => ({ ...current, rules: [...current.rules, { id: crypto.randomUUID(), text: '' }] }));
-    setNewRule('');
   };
 
   const addHabit = () => {
