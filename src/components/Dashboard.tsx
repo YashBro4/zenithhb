@@ -151,7 +151,7 @@ const Dashboard = () => {
       {/* View Selector */}
       {view !== 'profile' && (
         <div className="max-w-4xl mx-auto px-4 pt-4">
-          <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
+          <div className="flex max-w-full flex-wrap gap-1 p-1 bg-muted/50 rounded-xl w-fit">
             {mainViews.map(v => (
               <button
                 key={v.id}
