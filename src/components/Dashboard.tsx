@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Leaf, BarChart3, ListTodo, Grid3X3, LogOut, Settings, CalendarRange } from 'lucide-react';
+import { Leaf, BarChart3, ListTodo, Grid3X3, LogOut, Settings, CalendarRange, Flame } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHabits, useHabitCompletions, useAllCompletions, useAddHabit, useDeleteHabit, useToggleCompletion, useTodos, useAddTodo, useToggleTodo, useDeleteTodo, useUpdateHabitGoal } from '@/hooks/useSupabaseData';
 import { useGuestData } from '@/hooks/useGuestData';
@@ -14,13 +14,14 @@ import Timetable from '@/components/Timetable';
 import NotificationPrompt from '@/components/NotificationPrompt';
 import NotificationStatus from '@/components/NotificationStatus';
 import NotificationSettings from '@/components/NotificationSettings';
+import ArcMode from '@/components/ArcMode';
 import { useOneSignalSchedule } from '@/hooks/useOneSignalSchedule';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getRandomQuote } from '@/lib/quotes';
 
-type View = 'habits' | 'todos' | 'combined' | 'stats' | 'timetable' | 'profile';
+type View = 'habits' | 'todos' | 'combined' | 'stats' | 'timetable' | 'arc' | 'profile';
 
 const Dashboard = () => {
   const { user, isGuest, signOut, exitGuestMode } = useAuth();
@@ -114,6 +115,7 @@ const Dashboard = () => {
     { id: 'habits', icon: <BarChart3 className="w-4 h-4" />, label: 'Habits' },
     { id: 'todos', icon: <ListTodo className="w-4 h-4" />, label: 'To-Dos' },
     { id: 'timetable', icon: <CalendarRange className="w-4 h-4" />, label: 'Timetable' },
+    { id: 'arc', icon: <Flame className="w-4 h-4" />, label: 'Arc' },
     { id: 'stats', icon: <BarChart3 className="w-4 h-4" />, label: 'Stats' },
   ];
 
@@ -201,6 +203,8 @@ const Dashboard = () => {
         )}
 
         {view === 'timetable' && <Timetable />}
+
+        {view === 'arc' && <ArcMode />}
 
         {view === 'stats' && (
           <StatsView
