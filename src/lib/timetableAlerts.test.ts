@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { blockAlertStorageKey, getBlocksStartingNow, markBlockAlertFired } from './timetableAlerts';
+import {
+  blockAlertStorageKey,
+  getBlocksStartingNow,
+  markBlockAlertFired,
+  timetableNotificationOptions,
+} from './timetableAlerts';
 import type { TimeBlock } from '@/hooks/useTimeBlocks';
 
 const block = (id: string, day: number, start: number): TimeBlock => ({
@@ -35,5 +40,14 @@ describe('timetable alert timing and daily deduplication', () => {
       block('wrong-day', (now.getDay() + 1) % 7, 540),
       block('wrong-time', now.getDay(), 541),
     ], now).map(item => item.id)).toEqual(['match']);
+  });
+
+  it('creates the requested service-worker alert title, content, icon, vibration and tag', () => {
+    const notification = timetableNotificationOptions(block('focus-1', 2, 540));
+    expect(notification.title).toBe('Timetable Alert ⏰');
+    expect(notification.options.body).toBe('Starting now: focus-1 (9:00 AM - 10:00 AM)');
+    expect(notification.options.icon).toBe('/icon-192.png');
+    expect(notification.options.vibrate).toEqual([200, 100, 200]);
+    expect(notification.options.tag).toBe('timetable-block-focus-1');
   });
 });
